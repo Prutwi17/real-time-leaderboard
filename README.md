@@ -4,7 +4,7 @@ A production-style, multi-sport, real-time leaderboard platform. Authenticated u
 
 > Reference project: **https://roadmap.sh/projects/realtime-leaderboard**
 >
-> Status: Phase 0 (architecture & documentation) complete — implementation is in progress per [IMPLEMENTATIONPLAN.md](IMPLEMENTATIONPLAN.md). See [TRACKER.md](TRACKER.md) for honest, itemized progress. There is no live demo yet; this section will be updated only when a real deployment exists.
+> Status: Phase 0 documentation complete; **Phase 1A backend foundation complete** — all seven microservice skeletons build and pass context tests (see [TRACKER.md](TRACKER.md)). No business features (auth, scoring, Redis, Kafka, WebSocket, UI) implemented yet. There is no live demo yet; this section will be updated only when a real deployment exists.
 
 ---
 
@@ -52,7 +52,7 @@ Full diagrams: [DESIGN.md](DESIGN.md). Flows: [APPFLOW.md](APPFLOW.md).
 
 ## Technology Stack
 
-- **Backend:** Java 17, Spring Boot 3.x, Spring Cloud (Eureka, Gateway, OpenFeign), Spring Security + JWT, Spring Data JPA/Hibernate, Maven
+- **Backend:** Java 17 (LTS), Spring Boot 3.3.13, Spring Cloud 2023.0.5 (Eureka, Gateway; OpenFeign planned), Spring Security + JWT (planned), Spring Data JPA/Hibernate (planned), Maven Wrapper 3.3.2
 - **Data:** MySQL 8, Redis 7 (Sorted Sets), Apache Kafka 3.x
 - **Real-time:** Spring WebSocket + STOMP (+ SockJS fallback)
 - **Frontend:** React 18, TypeScript (strict), Vite
@@ -138,15 +138,25 @@ Copy `.env.example` → `.env` and fill real values locally. Never commit `.env`
 
 ## Local Development
 
-*(Available from Phase 14 onward; commands below describe the target state and do not work yet.)*
+### Build and run a backend service (Maven Wrapper — no global Maven required)
+
+```bash
+cd backend/auth-service        # or any service under backend/
+.\mvnw.cmd clean test          # compile + run tests (verified for all 7 services)
+.\mvnw.cmd spring-boot:run     # start the service
+```
+
+- Start `service-registry` first; its dashboard is at http://localhost:8761.
+- Verified baseline (Phase 1A): all seven services pass `.\mvnw.cmd clean test`; api-gateway registers with the registry through Eureka discovery (`lb://` routes are wired, downstream services arrive in later phases).
+- The first wrapper invocation downloads Maven 3.9.9 plus dependencies into `~/.m2` — one-time internet access required.
+
+### Full stack via Docker Compose (target state — Phase 14, not yet available)
 
 ```bash
 cp .env.example .env          # then edit values
 docker compose -f docker/docker-compose.yml up --build
 # frontend: http://localhost:5173 · gateway: http://localhost:8080 · eureka: http://localhost:8761
 ```
-
-Without Docker (per-service dev): start MySQL/Redis/Kafka locally, run each Spring Boot app (`mvn spring-boot:run`) and `npm run dev` in `frontend/`.
 
 ## Docker
 

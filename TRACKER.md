@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-**Last updated:** 2026-08-25 (Phase 0 initialization)
+**Last updated:** 2026-08-25 (Phase 1A backend foundation complete)
 **Rule:** an item is checked only when it is demonstrably done and verified. Never pre-check.
 
 Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is actively in progress.
@@ -26,15 +26,19 @@ Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is
 
 ## Phase 1 — Repository and Project Setup
 
-- [ ] Git repository initialized with `main` + `develop`
+*Phase 1A executed on `feature/project-setup`; git operations intentionally not performed (per instructions), so git-related items remain open. Build/test items below are verified.*
+
+- [ ] Git repository initialized with `main` + `develop` *(git state untouched — see Problems log)*
 - [ ] Branch protection conventions documented/applied
-- [ ] Parent POM (Java 17, Boot 3.3.x, Cloud 2023.0.x BOM)
-- [ ] Seven child module POMs created
-- [ ] Empty Spring Boot applications boot successfully
-- [ ] `mvn clean verify` green across reactor
+- [x] Seven service POMs created — Java 17, Spring Boot 3.3.13, Cloud BOM 2023.0.5 (standalone per-service projects instead of a parent-reactor POM; see [IMPLEMENTATIONPLAN.md](IMPLEMENTATIONPLAN.md) as-built note)
+- [x] Maven Wrapper vendored per service (scripts 3.3.2, Maven 3.9.9 distribution)
+- [x] Empty Spring Boot applications boot successfully (contextLoads per service; registry + gateway additionally smoke-tested running)
+- [x] `.\\mvnw.cmd clean test` green across all seven services
 - [ ] First PR merged using Conventional Commits
 
 ## Phase 2 — Service Registry
+
+*Foundation scaffolded early during Phase 1A: module exists, Eureka Server enabled, boots on :8761 (dashboard + health verified in smoke test). Functional items below stay open until formally verified in Phase 2.*
 
 - [ ] Eureka server module created
 - [ ] Registry runs on :8761
