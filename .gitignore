@@ -1,0 +1,62 @@
+# ---- Secrets / environment ----
+.env
+.env.*
+!.env.example
+
+# ---- Java / Maven ----
+target/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+dependency-reduced-pom.xml
+release.properties
+pom.xml.tag
+pom.xml.releaseBackup
+
+# ---- Node / frontend ----
+node_modules/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+.eslintcache
+.vite/
+
+# ---- IDEs ----
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.settings/
+.project
+.classpath
+.factorypath
+
+# ---- Logs ----
+logs/
+*.log
+*.log.*
+
+# ---- OS files ----
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ---- Docker runtime artifacts (never the compose/config themselves) ----
+docker/data/
+docker/volumes/
+
+# ---- Test reports / coverage ----
+surefire-reports/
+jacoco.exec
+*.exec
+
+# ---- Temporary / generated ----
+tmp/
+temp/
+*.swp
+*~
+*.bak

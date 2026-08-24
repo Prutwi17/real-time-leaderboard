@@ -1,0 +1,27 @@
+# CI Pipeline (placeholder)
+
+# Enabled for real in Phase 13 (Testing & Hardening) once backend modules build.
+# Planned jobs:
+#   backend:  checkout -> setup-java@4 (temurin, 17) -> mvn -B verify (reactor)
+#   frontend: checkout -> setup-node@4 (20) -> npm ci -> npm run typecheck && npm test
+#   docker:   compose config validation only until Phase 14
+#
+# Kept as a no-op job so the workflow file is valid YAML from day one.
+
+name: ci
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  placeholder:
+    name: CI scaffold (activates in Phase 13)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Report
+        run: echo "CI pipeline placeholder — real Maven/Node jobs are enabled in Phase 13 per IMPLEMENTATIONPLAN.md"
