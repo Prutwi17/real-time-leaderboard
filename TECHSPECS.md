@@ -30,6 +30,19 @@ This document records *what* we build with and *why*. It is not a tutorial; rati
 | DevOps | **Docker + Docker Compose v2** | current | One command brings up MySQL, Redis, Kafka, 7 JVM services, frontend. Identical images are promotable beyond local later. |
 | SCM/CI | **Git + GitHub (+ Actions placeholder)** | — | Monorepo strategy documented in [README](README.md#git-workflow); CI workflow scaffolded under `.github/workflows/ci.yml`, enabled when modules exist. |
 
+### Implemented baseline (as of Phase 1A)
+
+| Component | Version | Notes |
+|---|---|---|
+| Java toolchain | 17.0.12 LTS | `<java.version>17</java.version>` in every POM; no Java 21+ features anywhere |
+| Spring Boot | 3.3.13 | latest 3.3.x patch release; Java 17 remains fully supported |
+| Spring Cloud BOM | 2023.0.5 (Leyton) | imported via `spring-cloud-dependencies` in each service |
+| Maven Wrapper | scripts 3.3.2 / Maven 3.9.9 | vendored per service (`mvnw`, `mvnw.cmd`, `.mvn/wrapper/`) — no global Maven install required |
+
+Version pairing rationale: Spring Boot 3.3.x runs on Java 17+, and the Spring Cloud 2023.0.x release train is the pairing officially tested against Boot 3.3.x — so this combination satisfies the Java 17 mandate with zero compatibility friction. Boot 4.x and any Java 21+ runtime are deliberately excluded.
+
+Build layout decision (Phase 1A): each of the seven services is a **standalone** Spring Boot Maven project with its own wrapper and POM, making every service independently buildable (`backend/<svc>/.\mvnw.cmd`). The cross-service version pinning originally envisioned via a shared parent reactor POM is achieved by identical `<spring-cloud.version>2023.0.5</spring-cloud.version>` properties and identical starter-parent versions in all seven POMs.
+
 Explicitly **not** used in V1: Spring Config Server (env vars suffice), Kubernetes (Compose first), virtual threads / any Java 21+ features, GraphQL.
 
 ---
@@ -135,6 +148,7 @@ Startup order enforced via Compose `depends_on` + healthchecks; services retry E
 | Level | Tooling | Scope |
 |---|---|---|
 | Unit | JUnit 5 + Mockito | Services/mappers/rank math; no Spring context |
+| Context load | `@SpringBootTest` `contextLoads()` | **Implemented per service in Phase 1A**; Eureka client disabled in each service's `src/test/resources/application.yml` so contexts boot offline |
 | Web slice | `@WebMvcTest` | Controllers, validation, error payloads |
 | Integration | `@SpringBootTest` (+ Testcontainers where available) | Repository layer, Kafka round-trip, Redis ZSET behavior |
 | End-to-end | Manual scripted flows in Phase 13; API-level happy paths via Swagger/http files | Register → login → submit → board update |
@@ -152,3 +166,4 @@ Coverage gate ≥ 70% on domain logic (JaCoCo, introduced in Phase 13).
 - **Java 17 everywhere**: parent POM `<maven.compiler.release>17</maven.compiler.release>`; forbidden: virtual threads API, sequenced collections, record patterns (Java 21+).
 - **Boot 3.3.x + Cloud 2023.0.x** pinned in the parent BOM; child POMs inherit versions.
 - Frontend Node.js 20 LTS; TypeScript `strict: true` ([RULES.md §Frontend](RULES.md)).
+- **As built:** Boot 3.3.13 + Cloud BOM 2023.0.5 are pinned identically in all seven standalone service POMs (see "Implemented baseline" above).

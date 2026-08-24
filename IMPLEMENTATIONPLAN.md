@@ -20,6 +20,8 @@ Each phase lists Objective, Tasks, Expected files, Dependencies, Testing require
 - **Objective:** Compilable multi-module Maven skeleton with Git workflow active.
 - **Tasks:** `git init` + branch protection conventions; parent POM (Java 17 release, Boot 3.3.x, Cloud 2023.0.x BOM); create the seven child module POMs with empty Spring Boot apps; shared `.editorconfig`; commit conventions enforced via PR template.
 - **Expected files:** root `pom.xml`, `backend/*/pom.xml`, minimal `*Application.java` + `application.yml` per service.
+
+> As-built note (Phase 1A): implemented as seven **standalone** Spring Boot projects — one POM + Maven Wrapper per service, no shared reactor parent — so each service builds independently. Versions: Java 17.0.12 toolchain, Boot 3.3.13, Cloud BOM 2023.0.5, wrapper scripts 3.3.2 / Maven 3.9.9 distribution. All seven pass `.\mvnw.cmd clean test`; registry and gateway additionally smoke-tested running (Eureka dashboard UP, gateway registered as `API-GATEWAY`).
 - **Dependencies:** Phase 0.
 - **Testing:** `mvn clean verify` green across reactor; each app boots locally with placeholder config.
 - **Completion criteria:** Reactor builds; services register nothing yet but start; first PRs merged to `develop`.
