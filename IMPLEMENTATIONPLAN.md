@@ -50,6 +50,8 @@ Each phase lists Objective, Tasks, Expected files, Dependencies, Testing require
 - **Testing:** Unit tests for token utils + password flow; `@SpringBootTest` MVC tests for register/login/refresh/logout incl. failure paths; manual Swagger pass.
 - **Completion criteria:** AC of US-01/02 pass end-to-end through gateway; no plaintext secrets in repo.
 
+> As-built note (Phase 4, executed as "Phase 2"): completed with documented deviations — schema created via Hibernate `ddl-auto=update` in `leaderboard_auth` DB (no Flyway migration yet); refresh tokens validate-and-revoke only (rotation + reuse detection deferred); login backoff/rate limiting not yet implemented; gateway JWT filter still a skeleton (services enforce authorization today). Additions beyond plan: `/api/auth/me` identity endpoint, `/api/auth/admin/check` RBAC probe, uniform JSON error handling, actuator health/info on auth-service. Verified: 29/29 automated tests + live E2E through gateway against MySQL.
+
 ## PHASE 5 — User Service
 - **Objective:** Profile management and user statistics view.
 - **Tasks:** `user_profiles` table + CRUD (self only); profile read falls back to JWT username; stats endpoint (counts from score data arrive Phase 7+ — stub interface now); admin user-list endpoint (ADMIN) reading via auth-service API.

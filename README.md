@@ -4,7 +4,7 @@ A production-style, multi-sport, real-time leaderboard platform. Authenticated u
 
 > Reference project: **https://roadmap.sh/projects/realtime-leaderboard**
 >
-> Status: Phase 0 documentation complete; **Phase 1A backend foundation complete** — all seven microservice skeletons build and pass context tests (see [TRACKER.md](TRACKER.md)). No business features (auth, scoring, Redis, Kafka, WebSocket, UI) implemented yet. There is no live demo yet; this section will be updated only when a real deployment exists.
+> Status: Phase 0 docs ✅ · Phase 1A microservice foundations ✅ · **Phase 2 authentication implemented, tested (29/29) and verified live through the gateway against MySQL**. Redis, Kafka, WebSocket, scoring and UI are NOT implemented yet. No live demo exists; this section will be updated only when a real deployment exists.
 
 ---
 
@@ -75,7 +75,7 @@ Rationale for every choice: [TECHSPECS.md](TECHSPECS.md).
 
 ## Database
 
-MySQL schemas are owned per service (`auth_db`, `user_db`, `sport_db`, `score_db`) — see [SCHEMA.md](SCHEMA.md) for tables, keys, indexes, and ER diagrams. MySQL is the durable source of truth; it never serves live ranking.
+MySQL schemas are owned per service. The auth schema **`leaderboard_auth`** (tables `users`, `refresh_tokens`) is live as of Phase 2 via Hibernate `ddl-auto=update`; Flyway/Liquibase migrations are required before production. Other schemas arrive with their phases — full column-level specs and ER diagrams: [SCHEMA.md](SCHEMA.md). MySQL is the durable source of truth; it never serves live ranking.
 
 ## Redis Leaderboard
 
@@ -100,7 +100,25 @@ STOMP endpoint `/ws/leaderboard`; subscriptions `/topic/leaderboard/global` and 
 
 ## Authentication
 
-BCrypt credentials, HS256 access tokens (env secret), rotating hashed refresh tokens, gateway-enforced authorization with in-service re-checks. Full design and threat model: [SECURITY.md](SECURITY.md).
+Implemented in auth-service (Phase 2):
+
+- **Registration** `POST /api/auth/register` — validates username/email/password, stores BCrypt hash in MySQL (`leaderboard_auth.users`). Always creates a USER account; requested roles are ignored so nobody can self-elevate to ADMIN.
+- **Login** `POST /api/auth/login` — returns `{accessToken, refreshToken, tokenType: "Bearer", expiresIn, userId, username, role}`.
+- **JWT access tokens** — HS256, secret from `JWT_SECRET` env var, default 15-minute TTL.
+- **Refresh tokens** — opaque 512-bit random value; only its SHA-256 hash is stored; 7-day TTL.
+- **Refresh** `POST /api/auth/refresh` — exchanges a valid refresh token for a new access token.
+- **Logout** `POST /api/auth/logout` *(requires Bearer token)* — revokes the refresh token server-side. Access tokens remain cryptographically valid until they expire (stateless JWT), which is why their lifetime is short.
+- **Who am I** `GET /api/auth/me` *(requires Bearer token)* — safe identity payload for the current user.
+
+```bash
+curl -X POST http://localhost:8080/api/auth/register -H "Content-Type: application/json" \
+  -d '{"username":"john","email":"john@example.com","password":"Passw0rd123"}'
+
+curl -X POST http://localhost:8080/api/auth/login -H "Content-Type: application/json" \
+  -d '{"username":"john","password":"Passw0rd123"}'
+```
+
+Roles: `USER`, `ADMIN`; `/api/auth/admin/**` is ADMIN-only. Full security design: [SECURITY.md](SECURITY.md); schema: [SCHEMA.md](SCHEMA.md).
 
 ## Frontend
 

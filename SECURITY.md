@@ -1,7 +1,23 @@
 # Security Policy & Design
 
 **Product:** Real-Time Leaderboard System
-**Status:** Phase 0 — design commitments. Controls marked *Planned* are enforced when their phase completes (see [TRACKER.md](TRACKER.md)). Nothing here may be claimed "implemented" until verified.
+**Status legend:** ✅ **Implemented & tested** · **P** = Planned (phase-tracked). See [TRACKER.md](TRACKER.md) for exact state.
+
+### Implemented as of Phase 2 (auth-service)
+
+- BCrypt (strength 10) password hashing; plaintext never stored or returned.
+- JWT HS256 access tokens: secret from `JWT_SECRET` (≥ 32 bytes enforced; documented placeholder value refuses startup), default TTL 15 min (`JWT_ACCESS_TOKEN_EXPIRATION`).
+- Opaque refresh tokens (512-bit random): only SHA-256 hash persisted, TTL 7 days (`JWT_REFRESH_TOKEN_EXPIRATION`), revocable via logout.
+- Spring Security 6 stateless filter chain; public: register/login/refresh + actuator health; `/api/auth/admin/**` requires ROLE_ADMIN.
+- Uniform JSON error responses; generic login failure message (no account enumeration); duplicate registration → 409.
+- Verified live end-to-end through the API Gateway against MySQL (register/login/refresh/logout/RBAC/invalid-token paths).
+
+### Still planned (not yet implemented)
+
+- Refresh-token rotation with reuse detection (currently validate-and-revoke only).
+- API Gateway-level JWT signature validation (services enforce today).
+- Brute-force lockout/backoff, per-user rate limiting on auth endpoints.
+- TLS termination, dependency-CVE scanning, secret-rotation runbooks.
 
 ---
 
@@ -11,7 +27,7 @@
 |---|---|
 | Password storage | BCrypt, strength factor ≥ 10. Plain passwords exist only transiently in the registration/login request DTO and are never logged. |
 | Access token | JWT, HS256, secret = `JWT_SECRET` env var (≥ 32 random bytes), TTL = `JWT_EXPIRATION` ms. Claims: `sub`(userId), `username`, `role`, `iat`, `exp`, `jti`. |
-| Refresh token | Opaque random (≥ 256-bit) value; **only its SHA-256 hash is stored** (`refresh_tokens.token_hash`). TTL 7 days. Rotated on every use; reuse of a revoked token revokes the whole family for that user (theft signal). |
+| Refresh token | Opaque random (≥ 256-bit; implementation uses 512-bit) value; **only its SHA-256 hash is stored** (`refresh_tokens.token_hash`). TTL 7 days. Logout revokes the token. **Rotation-on-use and reuse-of-revoked-token family revocation are planned hardening — not yet implemented.** |
 | Logout | Revokes server-side refresh token; client discards access token (short TTL bounds its residual value). |
 | Transport | TLS terminated at gateway in deployed environments; local Compose traffic stays inside the private Docker network. |
 
@@ -46,8 +62,9 @@ Principles:
 | `REDIS_PORT` | score/leaderboard services | `6379` | |
 | `REDIS_PASSWORD` | score/leaderboard services | *(empty locally)* | required in any network-exposed Redis |
 | `KAFKA_BOOTSTRAP_SERVERS` | score/leaderboard services | `localhost:9092` | |
-| `JWT_SECRET` | auth-service, api-gateway | `replace_with_secure_random_secret` | ≥ 32 bytes; generate with e.g. `openssl rand -base64 48` |
-| `JWT_EXPIRATION` | auth-service, api-gateway | `86400000` | ms; production should shorten |
+| `JWT_SECRET` | auth-service, api-gateway | `replace_with_secure_random_secret` | ≥ 32 bytes; the literal placeholder value is rejected at startup |
+| `JWT_ACCESS_TOKEN_EXPIRATION` | auth-service | `900000` | ms; default 15 minutes |
+| `JWT_REFRESH_TOKEN_EXPIRATION` | auth-service | `604800000` | ms; default 7 days |
 | `EUREKA_SERVER_URL` | all services | `http://localhost:8761/eureka` | |
 | `API_GATEWAY_URL` | frontend build | `http://localhost:8080` | |
 

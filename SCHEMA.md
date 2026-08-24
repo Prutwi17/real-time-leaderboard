@@ -20,9 +20,18 @@ Database-per-service. No microservice reads or writes another service's tables �
 
 Identity duplication rule: services store **only `user_id` + denormalized `username` snapshot where display requires it**; credentials never leave `auth_db`.
 
-## 2. ER Diagrams
+## 2. Implementation Status
 
-### auth_db
+| Schema | Tables | Status |
+|---|---|---|
+| `leaderboard_auth` | `users`, `refresh_tokens` | **Implemented — Phase 2** (Hibernate `ddl-auto=update` in dev; Flyway/Liquibase migrations required before production) |
+| `user_db` / `sport_db` / `score_db` | future tables | Future phases |
+
+> The auth tables currently live in a database named **`leaderboard_auth`** (configurable via `MYSQL_DATABASE`).
+
+## 3. ER Diagrams
+
+### `leaderboard_auth` (implemented Phase 2)
 ```mermaid
 erDiagram
     users ||--o{ refresh_tokens : has
@@ -47,7 +56,7 @@ erDiagram
     }
 ```
 
-### user_db
+### user_db (future phase)
 ```mermaid
 erDiagram
     user_profiles {
@@ -60,7 +69,7 @@ erDiagram
     }
 ```
 
-### sport_db
+### sport_db (future phase)
 ```mermaid
 erDiagram
     sports {
@@ -75,7 +84,7 @@ erDiagram
     }
 ```
 
-### score_db
+### score_db (future phase)
 ```mermaid
 erDiagram
     sports_ref ||--o{ scores : "sport_id (logical FK)"
@@ -107,7 +116,7 @@ erDiagram
 
 ## 3. Table Specifications
 
-### 3.1 `auth_db.users`
+### 3.1 `leaderboard_auth.users` — **implemented Phase 2**
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | id | BIGINT | PK AUTO_INCREMENT | |
@@ -115,22 +124,22 @@ erDiagram
 | username | VARCHAR(50) | NOT NULL UNIQUE | `[a-zA-Z0-9_]{3,30}` |
 | password_hash | VARCHAR(72) | NOT NULL | BCrypt output only |
 | role | ENUM('USER','ADMIN') | NOT NULL DEFAULT 'USER' | mirrored into JWT claim |
-| enabled | BOOLEAN | NOT NULL DEFAULT TRUE | soft-disable login |
+| active | BOOLEAN | NOT NULL DEFAULT TRUE | soft-disable login (inactive ⇒ authentication rejected) |
 | created_at / updated_at | TIMESTAMP | NOT NULL | UTC, DB defaults |
 
 Indexes: unique(`email`), unique(`username`).
 
-### 3.2 `auth_db.refresh_tokens`
+### 3.2 `leaderboard_auth.refresh_tokens` — **implemented Phase 2**
 | Column | Type | Constraints |
 |---|---|---|
 | id | BIGINT | PK |
 | user_id | BIGINT | NOT NULL, INDEX |
-| token_hash | CHAR(64) | NOT NULL UNIQUE (SHA-256 hex) |
+| token_hash | CHAR(64) | NOT NULL UNIQUE (SHA-256 hex; raw token never stored) |
 | revoked | BOOLEAN | NOT NULL DEFAULT FALSE |
 | expires_at | TIMESTAMP | NOT NULL |
 | created_at | TIMESTAMP | NOT NULL |
 
-Index: `(user_id)`; purge job deletes rows expired > 30 days.
+Implemented behavior: opaque 512-bit random token returned once to the client; only its SHA-256 digest persisted; logout sets `revoked = true`; expired/revoked tokens are rejected on refresh. Rotation-on-use is planned hardening (see [SECURITY.md](SECURITY.md)).
 
 ### 3.3 `user_db.user_profiles`
 | Column | Type | Constraints |
