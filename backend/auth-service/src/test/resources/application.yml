@@ -1,3 +1,19 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:auth_test;MODE=MySQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
+jwt:
+  # Test-only secret (>= 32 bytes). Production/local runtime reads JWT_SECRET env var.
+  secret: unit-test-only-secret-key-0123456789abcdef0123456789abcdef
+  access-token-expiration-ms: 900000
+  refresh-token-expiration-ms: 604800000
+
 eureka:
   client:
     enabled: false

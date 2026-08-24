@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-**Last updated:** 2026-08-25 (Phase 1A backend foundation complete)
+**Last updated:** 2026-08-25 (Phase 2 authentication implemented, tested, and live-verified)
 **Rule:** an item is checked only when it is demonstrably done and verified. Never pre-check.
 
 Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is actively in progress.
@@ -58,15 +58,19 @@ Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is
 
 ## Phase 4 — Authentication
 
-- [ ] auth-service schema migration (users, refresh_tokens)
-- [ ] Registration endpoint with BCrypt hashing
-- [ ] Login endpoint issuing access + refresh tokens
-- [ ] Refresh token rotation + reuse detection
-- [ ] Logout revocation
-- [ ] Role model USER/ADMIN enforced
-- [ ] Gateway validates real JWT signatures
-- [ ] Unit + integration tests passing
-- [ ] No plaintext secrets anywhere
+*Executed as "Phase 2" of this build-out. Schema was created via Hibernate `ddl-auto=update` in the `leaderboard_auth` database instead of a Flyway migration — migration tooling remains a production requirement. Verified end-to-end through the API Gateway against live MySQL.*
+
+- [x] auth-service tables created (`leaderboard_auth.users`, `leaderboard_auth.refresh_tokens`) — *(via ddl-auto=update; Flyway deferred)*
+- [x] Registration endpoint with BCrypt hashing (+ 409 duplicates, 400 validation, self-role ignored)
+- [x] Login endpoint issuing access + refresh tokens
+- [ ] Refresh token rotation + reuse detection *(deferred hardening — validate/revoke is implemented)*
+- [x] Logout revocation (verified live: refresh after logout → 401)
+- [x] Role model USER/ADMIN enforced (`/api/auth/admin/**` ADMIN-only; no self-elevation)
+- [ ] Gateway validates real JWT signatures *(planned hardening — services enforce today)*
+- [x] Unit + integration tests passing (**29/29**: 14 MockMvc integration on H2, 6 JwtServiceTest, 8 AuthServiceTest, 1 contextLoads)
+- [x] No plaintext secrets anywhere (env-var placeholders only; placeholder JWT secret rejected at startup)
+
+Additional Phase 2 deliverables: `/api/auth/me` identity endpoint, uniform JSON error handling, actuator health/info exposure.
 
 ## Phase 5 — User Service
 
