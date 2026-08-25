@@ -22,6 +22,10 @@ spring:
           uri: lb://sport-service
           predicates:
             - Path=/api/sports/**
+        - id: sport-service-competitions
+          uri: lb://sport-service
+          predicates:
+            - Path=/api/competitions/**
         - id: score-service
           uri: lb://score-service
           predicates:

@@ -4,7 +4,7 @@ A production-style, multi-sport, real-time leaderboard platform. Authenticated u
 
 > Reference project: **https://roadmap.sh/projects/realtime-leaderboard**
 >
-> Status: Phase 0 docs ✅ · Phase 1A microservice foundations ✅ · **Phase 2 authentication implemented, tested (29/29) and verified live through the gateway against MySQL**. Redis, Kafka, WebSocket, scoring and UI are NOT implemented yet. No live demo exists; this section will be updated only when a real deployment exists.
+> Status: Phase 0 docs ✅ · Phase 1A microservice foundations ✅ · Phase 2 authentication ✅ · **Phase 3 sport service implemented, tested (55/55) and verified live through the gateway against MySQL**. Redis, Kafka, WebSocket, scoring and UI are NOT implemented yet. No live demo exists; this section will be updated only when a real deployment exists.
 
 ---
 
@@ -69,13 +69,42 @@ Rationale for every choice: [TECHSPECS.md](TECHSPECS.md).
 | api-gateway | 8080 | single entry point: routing, CORS, JWT filter | DESIGN §4 |
 | auth-service | 8081 | registration, login, JWT + refresh tokens, roles | SCHEMA §3.1–3.2 |
 | user-service | 8082 | profiles, user info/statistics | SCHEMA §3.3 |
-| sport-service | 8083 | sports CRUD, enable/disable, seeds | SCHEMA §3.4 |
+| sport-service | 8083 | sports CRUD, competitions, enable/disable, seeds | SCHEMA §3.4 (implemented) |
 | score-service | 8084 | submission validation, persistence, event publishing | SCHEMA §3.5–3.6 |
 | leaderboard-service | 8085 | boards, rank queries, Kafka consumer, WebSocket push, reports | SCHEMA §4 |
 
+## Sport Service
+
+Implemented in Phase 3 (port 8083, registers with Eureka as `SPORT-SERVICE`, database `leaderboard_sport`).
+
+**Supported sports:** exactly three — **Football** (`FOOTBALL`), **Cricket** (`CRICKET`), **Formula 1** (`F1`). The three sports are seeded automatically at startup if missing (idempotent `CommandLineRunner`; restarts never duplicate or delete data). Unsupported codes (BASKETBALL, TENNIS, …) are rejected with HTTP 400 — never silently created.
+
+**Sport endpoints**
+
+| Method | Path | Access |
+|---|---|---|
+| GET | `/api/sports` · `/api/sports/{id}` · `/api/sports/code/{code}` | public |
+| POST / PUT / PATCH status / DELETE | `/api/sports` · `/api/sports/{id}` | ADMIN |
+
+**Competition endpoints** (each competition belongs to exactly one sport)
+
+| Method | Path | Access |
+|---|---|---|
+| GET | `/api/competitions` · `/api/competitions/{id}` · `/api/sports/{sportId}/competitions` | public |
+| POST | `/api/sports/{sportId}/competitions` | ADMIN |
+| PUT / PATCH status / DELETE | `/api/competitions/{id}` | ADMIN |
+
+Deleting a sport that still owns competitions is refused with `409 CONFLICT` — deactivate it instead.
+
+```bash
+curl http://localhost:8080/api/sports
+curl http://localhost:8080/api/sports/code/F1
+curl -X POST http://localhost:8080/api/sports/1/competitions -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"name":"Premier League","code":"PREMIER_LEAGUE","startDate":"2026-08-15","endDate":"2027-05-24"}'
+```
+
 ## Database
 
-MySQL schemas are owned per service. The auth schema **`leaderboard_auth`** (tables `users`, `refresh_tokens`) is live as of Phase 2 via Hibernate `ddl-auto=update`; Flyway/Liquibase migrations are required before production. Other schemas arrive with their phases — full column-level specs and ER diagrams: [SCHEMA.md](SCHEMA.md). MySQL is the durable source of truth; it never serves live ranking.
+MySQL schemas are owned per service. The auth schema **`leaderboard_auth`** (tables `users`, `refresh_tokens`) is live as of Phase 2 and the sport schema **`leaderboard_sport`** (tables `sports`, `competitions`) is live as of Phase 3 — both via Hibernate `ddl-auto=update`; Flyway/Liquibase migrations are required before production. Other schemas arrive with their phases — full column-level specs and ER diagrams: [SCHEMA.md](SCHEMA.md). MySQL is the durable source of truth; it never serves live ranking.
 
 ## Redis Leaderboard
 

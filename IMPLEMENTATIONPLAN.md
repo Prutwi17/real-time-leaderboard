@@ -68,6 +68,8 @@ Each phase lists Objective, Tasks, Expected files, Dependencies, Testing require
 - **Testing:** Uniqueness conflict tests; enable/disable behavior tests; public-vs-admin authorization tests.
 - **Completion criteria:** US-10/11 acceptance passes; catalog visible publicly without auth.
 
+> As-built note (Phase 6, executed as "Phase 3"): completed with documented deviations — schema via Hibernate `ddl-auto=update` in `leaderboard_sport` (no Flyway migration); seeds via idempotent `DefaultSportsInitializer` (`CommandLineRunner`) instead of a migration; sport codes additionally constrained by a closed `SportCode` enum (FOOTBALL/CRICKET/F1) so unsupported sports are rejected at the API boundary while the varchar column stays extensible; competitions added per spec §7 with ManyToOne FK, unique uppercase code, and date-range validation; planned `/internal/sports/{id}` Feign endpoint deferred until a consumer exists; `score_unit_label` column deferred. Security: validation-only JWT (`JwtService` has no issue methods), public reads, ADMIN-only management. Gateway gained route `/api/competitions/**` → `lb://sport-service`. Tests: 55/55 green + live E2E through the gateway against MySQL.
+
 ## PHASE 7 — Score Service
 - **Objective:** Validated score ingestion persisted durably.
 - **Tasks:** `scores`+`score_history` tables; POST /api/scores pipeline (validate → persist tx); GET /api/scores/me paginated history; sport validation via cached Feign call; rate limiting (per-user bucket); Kafka producer wired (publish-after-commit) — consumer lands Phase 9; Redis write hook stubbed behind interface (Phase 8 fills it).

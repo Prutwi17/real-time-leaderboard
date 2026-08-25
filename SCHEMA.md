@@ -25,9 +25,10 @@ Identity duplication rule: services store **only `user_id` + denormalized `usern
 | Schema | Tables | Status |
 |---|---|---|
 | `leaderboard_auth` | `users`, `refresh_tokens` | **Implemented — Phase 2** (Hibernate `ddl-auto=update` in dev; Flyway/Liquibase migrations required before production) |
-| `user_db` / `sport_db` / `score_db` | future tables | Future phases |
+| `leaderboard_sport` | `sports`, `competitions` | **Implemented — Phase 3** (Hibernate `ddl-auto=update` in dev; migrations required before production) |
+| `user_db` / `score_db` | future tables | Future phases |
 
-> The auth tables currently live in a database named **`leaderboard_auth`** (configurable via `MYSQL_DATABASE`).
+> Each microservice owns its own database: auth-service uses **`leaderboard_auth`**, sport-service uses **`leaderboard_sport`** (both configurable via `MYSQL_DATABASE`). No shared schema exists.
 
 ## 3. ER Diagrams
 
@@ -56,7 +57,35 @@ erDiagram
     }
 ```
 
-### user_db (future phase)
+### `leaderboard_sport` (implemented Phase 3)
+```mermaid
+erDiagram
+    sports ||--o{ competitions : hosts
+
+    sports {
+        BIGINT id PK
+        VARCHAR code UK "FOOTBALL | CRICKET | F1 (enum-constrained)"
+        VARCHAR name "not null"
+        VARCHAR description
+        BOOLEAN active "default true"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+    competitions {
+        BIGINT id PK
+        VARCHAR name "not null"
+        VARCHAR code UK "uppercase, not null"
+        BIGINT sport_id FK "not null -> sports.id"
+        VARCHAR description
+        BOOLEAN active "default true"
+        DATE start_date
+        DATE end_date
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+```
+
+### user profiles (future phase)
 ```mermaid
 erDiagram
     user_profiles {
@@ -153,18 +182,31 @@ Implemented behavior: opaque 512-bit random token returned once to the client; o
 
 Row lazily created on first profile save; reads fall back to JWT username.
 
-### 3.4 `sport_db.sports`
+### 3.4 `leaderboard_sport.sports` — **implemented Phase 3**
 | Column | Type | Constraints | Notes |
 |---|---|---|---|
 | id | BIGINT | PK AUTO_INCREMENT | referenced as `sportId` in APIs |
-| code | VARCHAR(20) | NOT NULL UNIQUE | drives all derived keys/topics: `leaderboard:{lower(code)}` |
+| code | VARCHAR(20) | NOT NULL UNIQUE | enum-constrained to FOOTBALL / CRICKET / F1; stored as plain varchar so future sports need no migration; drives all derived keys/topics: `leaderboard:{lower(code)}` |
 | name | VARCHAR(100) | NOT NULL | |
 | description | VARCHAR(500) | | |
-| score_unit_label | VARCHAR(30) | | UI display ("points", "runs") |
-| active | BOOLEAN | NOT NULL DEFAULT TRUE | disabled ⇒ submissions rejected |
+| active | BOOLEAN | NOT NULL DEFAULT TRUE | disabled ⇒ submissions rejected (enforced from the score phase onward) |
 | created_at / updated_at | TIMESTAMP | NOT NULL | |
 
-Seed data (migration, idempotent): `FOOTBALL`, `CRICKET`, `F1`. **No application code may branch on these values.**
+> As built, the planned `score_unit_label` column is not yet present (no score submission UI exists); it can be added later without breaking anything. Seed data: `FOOTBALL`, `CRICKET`, `F1`, inserted idempotently by `DefaultSportsInitializer` at startup (skips rows that already exist). **No application code branches on these values** beyond the closed `SportCode` enum that guards input.
+
+### 3.4b `leaderboard_sport.competitions` — **implemented Phase 3**
+| Column | Type | Constraints |
+|---|---|---|
+| id | BIGINT | PK AUTO_INCREMENT |
+| name | VARCHAR(150) | NOT NULL |
+| code | VARCHAR(50) | NOT NULL UNIQUE (`uk_competitions_code`), pattern `[A-Z0-9_]{2,50}` |
+| sport_id | BIGINT | NOT NULL FK → `sports.id` (`fk_competition_sport`) |
+| description | VARCHAR(500) | |
+| active | BOOLEAN | NOT NULL DEFAULT TRUE |
+| start_date / end_date | DATE | nullable; endDate ≥ startDate validated at the API layer |
+| created_at / updated_at | TIMESTAMP | NOT NULL |
+
+Indexes: `idx_competitions_code (code)`, `idx_competitions_sport_id (sport_id)`. A competition cannot exist without a valid sport (NOT NULL FK); deleting a sport that still owns competitions is refused with HTTP 409 CONFLICT (deactivate instead).
 
 ### 3.5 `score_db.scores`
 Aggregated current state per (user, sport) — mirrors what Redis holds, but durable and queryable.
