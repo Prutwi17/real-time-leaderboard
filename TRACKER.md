@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-**Last updated:** 2026-08-25 (Phase 2 authentication implemented, tested, and live-verified)
+**Last updated:** 2026-08-25 (Phase 3 sport service implemented, tested, and live-verified)
 **Rule:** an item is checked only when it is demonstrably done and verified. Never pre-check.
 
 Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is actively in progress.
@@ -81,13 +81,17 @@ Additional Phase 2 deliverables: `/api/auth/me` identity endpoint, uniform JSON 
 
 ## Phase 6 — Sport Service
 
-- [ ] sport_db schema migration (sports)
-- [ ] Public list-active-sports endpoint
-- [ ] Admin create/update/status endpoints
-- [ ] Unique code enforcement
-- [ ] Seed data FOOTBALL, CRICKET, F1 via migration
-- [ ] Internal lookup endpoint for Feign consumers
-- [ ] Tests for conflicts and authorization
+*Executed as "Phase 3" of this build-out. Schema via Hibernate `ddl-auto=update` in the `leaderboard_sport` database (Flyway deferred); default sports seeded by an idempotent `CommandLineRunner`. Verified end-to-end through the API Gateway against live MySQL.*
+
+- [x] sport_db schema created (`leaderboard_sport`: `sports`, `competitions`) — *(via ddl-auto=update; Flyway deferred)*
+- [x] Public list-active-sports endpoint (`GET /api/sports`, `/api/sports/{id}`, `/api/sports/code/{code}`; all reads public)
+- [x] Admin create/update/status endpoints (sports + competitions; USER writes → 403, anonymous → 401)
+- [x] Unique code enforcement (sport codes enum-constrained + DB unique; competition codes pattern-checked + case-insensitive duplicate check)
+- [x] Seed data FOOTBALL, CRICKET, F1 — *via idempotent startup initializer instead of a SQL migration*
+- [x] Internal lookup endpoint for Feign consumers — *(not needed yet; public `GET /api/sports/code/{code}` serves discovery until a consumer exists. Revisit in score phase)*
+- [x] Tests for conflicts and authorization (**55/55**: 15 SportControllerTest, 7 CompetitionControllerTest, 11+10 service unit + integration, plus contextLoads)
+
+Additional Phase 3 deliverables: `SportCode` closed enum rejecting unsupported sports, competition lifecycle with date-range validation, gateway route `/api/competitions/**` → SPORT-SERVICE.
 
 ## Phase 7 — Score Service
 

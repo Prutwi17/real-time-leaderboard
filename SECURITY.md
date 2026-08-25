@@ -3,7 +3,7 @@
 **Product:** Real-Time Leaderboard System
 **Status legend:** ✅ **Implemented & tested** · **P** = Planned (phase-tracked). See [TRACKER.md](TRACKER.md) for exact state.
 
-### Implemented as of Phase 2 (auth-service)
+### Implemented as of Phase 3 (sport-service)
 
 - BCrypt (strength 10) password hashing; plaintext never stored or returned.
 - JWT HS256 access tokens: secret from `JWT_SECRET` (≥ 32 bytes enforced; documented placeholder value refuses startup), default TTL 15 min (`JWT_ACCESS_TOKEN_EXPIRATION`).
@@ -11,6 +11,14 @@
 - Spring Security 6 stateless filter chain; public: register/login/refresh + actuator health; `/api/auth/admin/**` requires ROLE_ADMIN.
 - Uniform JSON error responses; generic login failure message (no account enumeration); duplicate registration → 409.
 - Verified live end-to-end through the API Gateway against MySQL (register/login/refresh/logout/RBAC/invalid-token paths).
+
+#### Sport Service authorization (Phase 3)
+
+- **One JWT system:** auth-service issues tokens; sport-service only *validates* signatures with the shared `JWT_SECRET`. Its `JwtService` deliberately has no generation methods and there is no user table or credential logic in sport-service.
+- **Public read endpoints** (no token required): `GET /api/sports`, `GET /api/sports/{id}`, `GET /api/sports/code/{code}`, `GET /api/competitions`, `GET /api/competitions/{id}`, `GET /api/sports/{sportId}/competitions`.
+- **ADMIN-only management** (`hasRole("ADMIN")` on POST/PUT/PATCH/DELETE): sport create/update/status/delete and competition create/update/status/delete — including the nested `/api/sports/{sportId}/competitions` POST. Missing token → 401; valid USER token → 403.
+- Invalid/expired/garbage Bearer tokens are rejected by the filter (context cleared → anonymous); tampered role claims break the signature and are ignored.
+- Verified live through the gateway: anonymous reads 200, USER writes 403, ADMIN writes 201/200, no-token writes 401.
 
 ### Still planned (not yet implemented)
 
