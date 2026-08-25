@@ -18,6 +18,10 @@ spring:
           uri: lb://user-service
           predicates:
             - Path=/api/users/**
+        - id: user-service-players
+          uri: lb://user-service
+          predicates:
+            - Path=/api/players/**
         - id: sport-service
           uri: lb://sport-service
           predicates:

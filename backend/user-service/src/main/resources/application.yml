@@ -1,16 +1,40 @@
 server:
-  port: ${SERVER_PORT:8082}
+  port: 8082
 
 spring:
   application:
     name: user-service
 
+  datasource:
+    url: jdbc:mysql://localhost:3306/leaderboard_user?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: root
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+
+  jackson:
+    default-property-inclusion: non_null
+
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
-  instance:
-    prefer-ip-address: true
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
 
 management:
   endpoints:
@@ -19,4 +43,12 @@ management:
         include: health,info
   endpoint:
     health:
-      show-details: always
+      show-details: when-authorized
+
+jwt:
+  secret: ${JWT_SECRET}
+
+logging:
+  level:
+    com.realtimeleaderboard.user: INFO
+    com.realtimeleaderboard.user.security: DEBUG

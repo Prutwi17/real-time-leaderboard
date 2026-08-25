@@ -4,7 +4,7 @@ A production-style, multi-sport, real-time leaderboard platform. Authenticated u
 
 > Reference project: **https://roadmap.sh/projects/realtime-leaderboard**
 >
-> Status: Phase 0 docs ✅ · Phase 1A microservice foundations ✅ · Phase 2 authentication ✅ · Phase 3 sport service ✅ · **Phase 4 score service implemented, tested (46/46) and verified live through the gateway against MySQL**. Redis, Kafka, WebSocket, leaderboard ranking and UI are NOT implemented yet. No live demo exists; this section will be updated only when a real deployment exists.
+> Status: Phase 0 docs ✅ · Phase 1A microservice foundations ✅ · Phase 2 authentication ✅ · Phase 3 sport service ✅ · Phase 4 score service ✅ · **Phase 5 user/player service implemented, tested (44/44) and verified live through the gateway against MySQL**. Redis, Kafka, WebSocket, leaderboard ranking and UI are NOT implemented yet. No live demo exists; this section will be updated only when a real deployment exists.
 
 ---
 
@@ -52,7 +52,7 @@ Full diagrams: [DESIGN.md](DESIGN.md). Flows: [APPFLOW.md](APPFLOW.md).
 
 ## Technology Stack
 
-- **Backend:** Java 17 (LTS), Spring Boot 3.3.13, Spring Cloud 2023.0.5 (Eureka, Gateway), Spring Security + JWT (auth, sport, score services), Spring Data JPA/Hibernate (auth, sport, score services), Maven Wrapper 3.3.2
+- **Backend:** Java 17 (LTS), Spring Boot 3.3.13, Spring Cloud 2023.0.5 (Eureka, Gateway), Spring Security + JWT (auth, sport, score, user services), Spring Data JPA/Hibernate (auth, sport, score, user services), Maven Wrapper 3.3.2
 - **Data:** MySQL 8, Redis 7 (Sorted Sets), Apache Kafka 3.x
 - **Real-time:** Spring WebSocket + STOMP (+ SockJS fallback)
 - **Frontend:** React 18, TypeScript (strict), Vite
@@ -68,7 +68,7 @@ Rationale for every choice: [TECHSPECS.md](TECHSPECS.md).
 | service-registry | 8761 | Eureka discovery | — |
 | api-gateway | 8080 | single entry point: routing, CORS, JWT filter | DESIGN §4 |
 | auth-service | 8081 | registration, login, JWT + refresh tokens, roles | SCHEMA §3.1–3.2 |
-| user-service | 8082 | profiles, user info/statistics | SCHEMA §3.3 |
+| user-service | 8082 | player profiles CRUD, public read, ADMIN management | SCHEMA §3.3 |
 | sport-service | 8083 | sports CRUD, competitions, enable/disable, seeds | SCHEMA §3.4 (implemented) |
 | score-service | 8084 | score submission, validation, ownership, persistence, sport-service integration | SCHEMA §3.5 |
 | leaderboard-service | 8085 | boards, rank queries, Kafka consumer, WebSocket push, reports | SCHEMA §4 |
@@ -100,6 +100,42 @@ Deleting a sport that still owns competitions is refused with `409 CONFLICT` —
 curl http://localhost:8080/api/sports
 curl http://localhost:8080/api/sports/code/F1
 curl -X POST http://localhost:8080/api/sports/1/competitions -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"name":"Premier League","code":"PREMIER_LEAGUE","startDate":"2026-08-15","endDate":"2027-05-24"}'
+```
+
+## User / Player Service
+
+Implemented in Phase 5 (port 8082, registers with Eureka as `USER-SERVICE`, database `leaderboard_user`).
+
+Player profile management with public read access and ADMIN-only management. The service validates JWTs using the shared `JWT_SECRET` (validation-only, no token generation). Deactivated players are filtered from list queries but still accessible by ID; hard delete is ADMIN-only.
+
+**Player endpoints**
+
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| POST | `/api/players` | authenticated | create player profile; `displayName`, `email` required; optional `bio`, `profileImageUrl` |
+| GET | `/api/players` | public | paginated list of active players; `?search=` filters by display name |
+| GET | `/api/players/{id}` | public | single player by ID |
+| PUT | `/api/players/{id}` | ADMIN | update profile fields |
+| PUT | `/api/players/{id}/deactivate` | ADMIN | soft-delete: sets `active=false`; player excluded from list |
+| PUT | `/api/players/{id}/activate` | ADMIN | restore deactivated player |
+| DELETE | `/api/players/{id}` | ADMIN | hard delete |
+
+**Validation rules:** `displayName` 2–50 chars; `email` valid and unique; duplicate email → 409.
+
+```bash
+curl http://localhost:8080/api/players
+curl http://localhost:8080/api/players/1
+
+# create (requires auth token)
+curl -X POST http://localhost:8080/api/players -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"displayName":"player_one","email":"player1@example.com","bio":"Football enthusiast"}'
+
+# admin: update / deactivate / activate / delete
+curl -X PUT http://localhost:8080/api/players/1 -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"bio":"Updated bio"}'
+curl -X PUT http://localhost:8080/api/players/1/deactivate -H "Authorization: Bearer $ADMIN_TOKEN"
+curl -X PUT http://localhost:8080/api/players/1/activate  -H "Authorization: Bearer $ADMIN_TOKEN"
+curl -X DELETE http://localhost:8080/api/players/1 -H "Authorization: Bearer $ADMIN_TOKEN"
 ```
 
 ## Score Service
@@ -134,7 +170,7 @@ curl "http://localhost:8080/api/scores?sportId=1&scoreType=GOALS" -H "Authorizat
 
 ## Database
 
-MySQL schemas are owned per service. The auth schema **`leaderboard_auth`** (tables `users`, `refresh_tokens`) is live as of Phase 2, the sport schema **`leaderboard_sport`** (tables `sports`, `competitions`) is live as of Phase 3, and the score schema **`leaderboard_score`** (table `scores`) is live as of Phase 4 — all via Hibernate `ddl-auto=update`; Flyway/Liquibase migrations are required before production. Other schemas arrive with their phases — full column-level specs and ER diagrams: [SCHEMA.md](SCHEMA.md). MySQL is the durable source of truth; it never serves live ranking.
+MySQL schemas are owned per service. The auth schema **`leaderboard_auth`** (tables `users`, `refresh_tokens`) is live as of Phase 2, the sport schema **`leaderboard_sport`** (tables `sports`, `competitions`) is live as of Phase 3, the score schema **`leaderboard_score`** (table `scores`) is live as of Phase 4, and the user schema **`leaderboard_user`** (table `players`) is live as of Phase 5 — all via Hibernate `ddl-auto=update`; Flyway/Liquibase migrations are required before production. Other schemas arrive with their phases — full column-level specs and ER diagrams: [SCHEMA.md](SCHEMA.md). MySQL is the durable source of truth; it never serves live ranking.
 
 ## Redis Leaderboard
 

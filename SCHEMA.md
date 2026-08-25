@@ -13,7 +13,7 @@ Database-per-service. No microservice reads or writes another service's tables �
 | Schema | Owner | Tables |
 |---|---|---|
 | `auth_db` | auth-service | `users`, `refresh_tokens` |
-| `user_db` | user-service | `user_profiles` |
+| `leaderboard_user` | user-service | `players` |
 | `sport_db` | sport-service | `sports` |
 | `score_db` | score-service | `scores`, `score_history` |
 | *(no MySQL)* | leaderboard-service | Redis keyspace only; reports read via score-service API |
@@ -27,7 +27,8 @@ Identity duplication rule: services store **only `user_id` + denormalized `usern
 | `leaderboard_auth` | `users`, `refresh_tokens` | **Implemented — Phase 2** (Hibernate `ddl-auto=update` in dev; Flyway/Liquibase migrations required before production) |
 | `leaderboard_sport` | `sports`, `competitions` | **Implemented — Phase 3** (Hibernate `ddl-auto=update` in dev; migrations required before production) |
 | `leaderboard_score` | `scores` | **Implemented — Phase 4** (Hibernate `ddl-auto=update` in dev; migrations required before production) |
-| `user_db` | future tables | Future phases |
+| `leaderboard_user` | `players` | **Implemented — Phase 5** (Hibernate `ddl-auto=update` in dev; migrations required before production) |
+| `user_db` | future tables | Future phases (expanded user profiles if needed beyond players) |
 
 > Each microservice owns its own database: auth-service uses **`leaderboard_auth`**, sport-service uses **`leaderboard_sport`** (both configurable via `MYSQL_DATABASE`). No shared schema exists.
 
@@ -86,15 +87,17 @@ erDiagram
     }
 ```
 
-### user profiles (future phase)
+### `leaderboard_user` (implemented Phase 5)
 ```mermaid
 erDiagram
-    user_profiles {
+    players {
         BIGINT id PK
-        BIGINT user_id UK "identity owned by auth-service"
-        VARCHAR display_name
-        VARCHAR avatar_url
-        TEXT bio
+        VARCHAR display_name "not null, 2-50 chars"
+        VARCHAR email UK "unique, not null"
+        VARCHAR bio "nullable, max 500"
+        VARCHAR profile_image_url "nullable"
+        BOOLEAN active "default true"
+        TIMESTAMP created_at
         TIMESTAMP updated_at
     }
 ```
@@ -163,17 +166,18 @@ Indexes: unique(`email`), unique(`username`).
 
 Implemented behavior: opaque 512-bit random token returned once to the client; only its SHA-256 digest persisted; logout sets `revoked = true`; expired/revoked tokens are rejected on refresh. Rotation-on-use is planned hardening (see [SECURITY.md](SECURITY.md)).
 
-### 3.3 `user_db.user_profiles`
-| Column | Type | Constraints |
-|---|---|---|
-| id | BIGINT | PK |
-| user_id | BIGINT | NOT NULL UNIQUE |
-| display_name | VARCHAR(50) | |
-| avatar_url | VARCHAR(500) | validated URL |
-| bio | TEXT | length-capped in DTO |
-| updated_at | TIMESTAMP | NOT NULL |
+### 3.3 `leaderboard_user.players` — **implemented Phase 5**
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| id | BIGINT | PK AUTO_INCREMENT | |
+| display_name | VARCHAR(50) | NOT NULL | 2-50 chars, validated at API layer |
+| email | VARCHAR(255) | NOT NULL UNIQUE | validated email format |
+| bio | VARCHAR(500) | | optional player biography |
+| profile_image_url | VARCHAR(255) | | optional avatar URL |
+| active | BOOLEAN | NOT NULL DEFAULT TRUE | soft-delete: deactivated players filtered from list queries |
+| created_at / updated_at | TIMESTAMP | NOT NULL | UTC; updated on every modification via `@PreUpdate` |
 
-Row lazily created on first profile save; reads fall back to JWT username.
+Indexes: unique(`email`). Email uniqueness enforces no duplicate player profiles. Admin-only update/deactivate/activate/delete operations; reads are public (no auth required).
 
 ### 3.4 `leaderboard_sport.sports` — **implemented Phase 3**
 | Column | Type | Constraints | Notes |
