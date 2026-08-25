@@ -34,6 +34,9 @@ eureka:
 jwt:
   secret: ${JWT_SECRET}
 
+internal:
+  service-secret: ${INTERNAL_SERVICE_SECRET:}
+
 management:
   endpoints:
     web:

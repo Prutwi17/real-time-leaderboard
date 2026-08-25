@@ -4,7 +4,7 @@ A production-style, multi-sport, real-time leaderboard platform. Authenticated u
 
 > Reference project: **https://roadmap.sh/projects/realtime-leaderboard**
 >
-> Status: Phase 0 docs ✅ · Phase 1A microservice foundations ✅ · Phase 2 authentication ✅ · Phase 3 sport service ✅ · Phase 4 score service ✅ · **Phase 5 user/player service implemented, tested (44/44) and verified live through the gateway against MySQL**. Redis, Kafka, WebSocket, leaderboard ranking and UI are NOT implemented yet. No live demo exists; this section will be updated only when a real deployment exists.
+> Status: Phase 0 docs ✅ · Phase 1A microservice foundations ✅ · Phase 2 authentication ✅ · Phase 3 sport service ✅ · Phase 4 score service ✅ · Phase 5 user/player service ✅ · **Phase 6 Redis leaderboard implemented (69/69 tests) with live score-to-ranking pipeline**. Kafka, WebSocket, and frontend are NOT implemented yet.
 
 ---
 
@@ -52,7 +52,7 @@ Full diagrams: [DESIGN.md](DESIGN.md). Flows: [APPFLOW.md](APPFLOW.md).
 
 ## Technology Stack
 
-- **Backend:** Java 17 (LTS), Spring Boot 3.3.13, Spring Cloud 2023.0.5 (Eureka, Gateway), Spring Security + JWT (auth, sport, score, user services), Spring Data JPA/Hibernate (auth, sport, score, user services), Maven Wrapper 3.3.2
+- **Backend:** Java 17 (LTS), Spring Boot 3.3.13, Spring Cloud 2023.0.5 (Eureka, Gateway), Spring Security + JWT (auth, sport, score, user services), Spring Data JPA/Hibernate (auth, sport, score, user services), Spring Data Redis (leaderboard-service), Maven Wrapper 3.3.2
 - **Data:** MySQL 8, Redis 7 (Sorted Sets), Apache Kafka 3.x
 - **Real-time:** Spring WebSocket + STOMP (+ SockJS fallback)
 - **Frontend:** React 18, TypeScript (strict), Vite
@@ -71,7 +71,7 @@ Rationale for every choice: [TECHSPECS.md](TECHSPECS.md).
 | user-service | 8082 | player profiles CRUD, public read, ADMIN management | SCHEMA §3.3 |
 | sport-service | 8083 | sports CRUD, competitions, enable/disable, seeds | SCHEMA §3.4 (implemented) |
 | score-service | 8084 | score submission, validation, ownership, persistence, sport-service integration | SCHEMA §3.5 |
-| leaderboard-service | 8085 | boards, rank queries, Kafka consumer, WebSocket push, reports | SCHEMA §4 |
+| leaderboard-service | 8085 | Redis Sorted Set boards, rank queries, score update consumer (HTTP), rebuild, reports | SCHEMA §4 |
 
 ## Sport Service
 
@@ -166,6 +166,33 @@ curl http://localhost:8080/api/scores/me -H "Authorization: Bearer $TOKEN"
 
 # Admin search
 curl "http://localhost:8080/api/scores?sportId=1&scoreType=GOALS" -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+## Leaderboard Service
+
+Implemented in Phase 6 (port 8085, registers with Eureka as `LEADERBOARD-SERVICE`, Redis-backed — no MySQL).
+
+Redis Sorted Sets power all live rankings. Score-service notifies leaderboard-service on each score submission via an internal HTTP API protected by a shared secret (`X-Internal-Service-Secret`). Idempotent processing via Redis processed-score keys prevents duplicate ranking updates.
+
+**Leaderboard endpoints**
+
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| GET | `/api/leaderboards/{sport}/top?limit=N` | public | top-N entries (default 10, max 100) |
+| GET | `/api/leaderboards/{sport}?page=&size=` | public | paginated full leaderboard |
+| GET | `/api/leaderboards/{sport}/players/{userId}/rank` | public | player rank + score |
+| GET | `/api/leaderboards/{sport}/players/{userId}/nearby?range=N` | public | players around given rank |
+| GET | `/api/leaderboards/{sport}/me` | authenticated | current user's rank |
+| GET | `/api/leaderboards/{sport}/size` | public | total players on board |
+| POST | `/internal/leaderboards/scores` | internal secret | score update notification |
+| POST | `/internal/leaderboards/{sport}/rebuild` | internal secret | rebuild board from score-service data |
+
+**Supported sports:** FOOTBALL, CRICKET, F1 — keys derived as `leaderboard:{sport_lowercase}`.
+
+```bash
+curl http://localhost:8080/api/leaderboards/football/top?limit=5
+curl http://localhost:8080/api/leaderboards/football/players/1/rank
+curl http://localhost:8080/api/leaderboards/football/me -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Database

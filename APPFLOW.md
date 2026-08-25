@@ -97,32 +97,34 @@ sequenceDiagram
     participant R as React
     participant GW as API Gateway
     participant SC as score-service
-    participant SP as sport-service (Feign)
+    participant SP as sport-service (RestTemplate)
+    participant LB as leaderboard-service (internal)
     participant MY as MySQL score_db
     participant RD as Redis
-    participant K as Kafka (score-submitted)
 
     U->>R: submit {sportId, score}
     R->>GW: POST /api/scores (Bearer JWT)
     GW->>SC: lb://score-service + identity headers
-    SC->>SC: validate body, rate limit (FR-20)
-    SC->>SP: GET /internal/sports/{id} (Feign, cached)
+    SC->>SC: validate body (Bean Validation)
+    SC->>SP: GET /api/sports/{sportId} (RestTemplate, load-balanced)
     SP-->>SC: sport exists AND enabled?
     alt invalid user/sport/score
-        SC-->>U: 400/404 problem+json (nothing persisted)
+        SC-->>U: 400/404/409 problem+json (nothing persisted)
     else valid
-        SC->>MY: INSERT scores + score_history (single tx)
-        Note over SC,K: publish AFTER commit
-        SC->>RD: ZINCRBY leaderboard:{code} score userId<br/>ZINCRBY daily/weekly keys
-        SC->>K: publish ScoreSubmittedEvent{eventId,...}
-        SC-->>U: 201 {scoreId, currentRank?}
+        SC->>MY: INSERT scores (single tx)
+        SC-->>U: 201 {id, userId, sportId, value, ...}
+        Note over SC,LB: after MySQL commit (best-effort)
+        SC->>LB: POST /internal/leaderboards/scores (X-Internal-Service-Secret)
+        LB->>RD: ZINCRBY leaderboard:{sport_lowercase} score userId
+        LB->>RD: SET leaderboard:processed:{scoreId} (idempotency, 72h TTL)
     end
 ```
 
 Design decisions:
 - User validity comes from gateway-verified JWT claims (`X-User-Id`), so no user-service call is needed on this hot path.
-- Redis update happens synchronously here for immediate read-your-write on boards; Kafka remains the source that drives *broadcast* and any reconciliation.
-- If Redis or Kafka are briefly down, MySQL commit still succeeds and a reconciliation job replays history ([DESIGN.md §Failure scenarios](DESIGN.md)).
+- Score-service calls leaderboard-service via HTTP after MySQL commit (best-effort); Kafka is not yet in the pipeline.
+- Leaderboard-service performs idempotent Redis writes keyed by `scoreId` with a 72h TTL to prevent duplicate processing.
+- If the internal call to leaderboard-service fails, MySQL commit still succeeds and a reconciliation job replays history ([DESIGN.md §Failure scenarios](DESIGN.md)).
 
 ---
 

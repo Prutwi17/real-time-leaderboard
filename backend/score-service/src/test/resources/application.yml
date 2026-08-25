@@ -17,6 +17,9 @@ eureka:
 jwt:
   secret: unit-test-only-secret-key-0123456789abcdef0123456789abcdef
 
+internal:
+  service-secret: test-internal-secret
+
 logging:
   level:
     com.realtimeleaderboard.score: INFO

@@ -28,6 +28,7 @@ Identity duplication rule: services store **only `user_id` + denormalized `usern
 | `leaderboard_sport` | `sports`, `competitions` | **Implemented — Phase 3** (Hibernate `ddl-auto=update` in dev; migrations required before production) |
 | `leaderboard_score` | `scores` | **Implemented — Phase 4** (Hibernate `ddl-auto=update` in dev; migrations required before production) |
 | `leaderboard_user` | `players` | **Implemented — Phase 5** (Hibernate `ddl-auto=update` in dev; migrations required before production) |
+| `leaderboard-service` | *(no MySQL — Redis keyspace only)* | **Implemented — Phase 6** (Redis Sorted Sets for live ranking; processed score keys for idempotency) |
 | `user_db` | future tables | Future phases (expanded user profiles if needed beyond players) |
 
 > Each microservice owns its own database: auth-service uses **`leaderboard_auth`**, sport-service uses **`leaderboard_sport`** (both configurable via `MYSQL_DATABASE`). No shared schema exists.
@@ -229,17 +230,17 @@ Redis is the **live leaderboard engine**. Member = `userId`; score = aggregate p
 
 ### 4.1 Key patterns
 
-| Pattern | Example | Purpose | TTL |
-|---|---|---|---|
-| `leaderboard:global` | — | all-time, all sports | none |
-| `leaderboard:{code}` | `leaderboard:f1` | all-time per sport (`{code}` = lowercase sport code from `sports` table) | none |
-| `leaderboard:global:daily:{yyyy-MM-dd}` | `leaderboard:global:daily:2026-08-25` | day window, all sports | 8 days |
-| `leaderboard:{code}:daily:{yyyy-MM-dd}` | `leaderboard:cricket:daily:2026-08-25` | day window per sport | 8 days |
-| `leaderboard:{code}:weekly:{yyyy}-W{ww}` | `leaderboard:football:weekly:2026-W35` | ISO week per sport | 40 days |
-| `leaderboard:global:weekly:{yyyy}-W{ww}` | — | ISO week, all sports | 40 days |
-| `leaderboard:f1:season:{yyyy}` | `leaderboard:f1:season:2026` | F1 season board | 400 days |
-| `processed:event:{eventId}` | `processed:event:7c9e...` | consumer idempotency marker (`SET NX EX 48h`) | 48 h |
-| `cache:sports:active` | — | JSON cache of enabled catalog | 60 s |
+| Pattern | Example | Purpose | TTL | Status |
+|---|---|---|---|---|
+| **`leaderboard:{sport_lowercase}`** | `leaderboard:f1` | **All-time per sport** (`{sport_lowercase}` = lowercase sport code from `sports` table) | none | **Implemented — Phase 6** |
+| **`leaderboard:processed:{scoreId}`** | `leaderboard:processed:7c9e...` | **Idempotency marker for score updates** (`SET NX EX 72h`) | 72 h | **Implemented — Phase 6** |
+| `leaderboard:global` | — | all-time, all sports | none | Planned |
+| `leaderboard:global:daily:{yyyy-MM-dd}` | `leaderboard:global:daily:2026-08-25` | day window, all sports | 8 days | Planned |
+| `leaderboard:{code}:daily:{yyyy-MM-dd}` | `leaderboard:cricket:daily:2026-08-25` | day window per sport | 8 days | Planned |
+| `leaderboard:{code}:weekly:{yyyy}-W{ww}` | `leaderboard:football:weekly:2026-W35` | ISO week per sport | 40 days | Planned |
+| `leaderboard:global:weekly:{yyyy}-W{ww}` | — | ISO week, all sports | 40 days | Planned |
+| `leaderboard:f1:season:{yyyy}` | `leaderboard:f1:season:2026` | F1 season board | 400 days | Planned |
+| `cache:sports:active` | — | JSON cache of enabled catalog | 60 s | Planned |
 
 Because `{code}` originates in MySQL, adding `TENNIS` instantly produces `leaderboard:tennis*` usage with zero code change.
 

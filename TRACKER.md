@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-**Last updated:** 2026-08-26 (Phase 5 user/player service implemented, tested, and live-verified)
+**Last updated:** 2026-08-26 (Phase 6 Redis Leaderboard implemented, tested 69/69, and live-verified through gateway)
 **Rule:** an item is checked only when it is demonstrably done and verified. Never pre-check.
 
 Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is actively in progress.
@@ -121,14 +121,22 @@ Additional Phase 3 deliverables: `SportCode` closed enum rejecting unsupported s
 
 ## Phase 8 — Redis Leaderboard
 
-- [ ] Key-builder honoring {code} derivation + TTL policy
-- [ ] Producer-side ZINCRBY active
-- [ ] Global / per-sport read endpoints with pagination
-- [ ] Daily / weekly / season windows
-- [ ] /me rank-score-count endpoint
-- [ ] Rebuild-from-history bootstrap job
-- [ ] Integration tests incl. tie handling and window rollover
-- [ ] NFR-01 latency spot-check recorded
+*Executed as "Phase 6" of this build-out. Redis Sorted Sets power live ranking. Score-service notifies leaderboard-service on each score submission via internal HTTP API with shared secret. Schema: no MySQL (Redis keyspace only). Tests: 69/69 green in leaderboard-service; 46/46 in score-service (with LeaderboardClient).*
+
+- [x] `leaderboard-service` implemented on port 8085, registers with Eureka as `LEADERBOARD-SERVICE`, Redis-backed (no MySQL)
+- [x] Key-builder (`LeaderboardKeyFactory`) — deterministic sport→key mapping: FOOTBALL→leaderboard:football, CRICKET→leaderboard:cricket, F1→leaderboard:f1
+- [x] Score submission notification: score-service `LeaderboardClient` → `POST /internal/leaderboards/scores` (X-Internal-Service-Secret header)
+- [x] Idempotent score updates via `processed:score:{scoreId}` Redis keys (72h TTL)
+- [x] Public read endpoints: GET `/api/leaderboards/{sport}/top?limit=N`, `/api/leaderboards/{sport}?page=&size=`, `/api/leaderboards/{sport}/players/{userId}/rank`, `/api/leaderboards/{sport}/players/{userId}/nearby?range=N`
+- [x] Authenticated endpoint: GET `/api/leaderboards/{sport}/me` (returns current user's rank)
+- [x] Size endpoint: GET `/api/leaderboards/{sport}/size` (total players)
+- [x] Internal rebuild endpoint: POST `/internal/leaderboards/{sport}/rebuild` (X-Internal-Service-Secret)
+- [x] Security: JWT validation-only (`JwtService`), public reads, `/internal/**` protected by `X-Internal-Service-Secret`, CSRF disabled, stateless session
+- [x] Gateway routes added: `/api/leaderboards/**` → `lb://leaderboard-service`, `/api/reports/**` → `lb://leaderboard-service`
+- [x] Tests passing (**69/69**: 14 LeaderboardControllerTest, 13 LeaderboardServiceTest, 9 LeaderboardUpdateServiceTest, 11 RedisLeaderboardRepositoryTest, 8 LeaderboardKeyFactoryTest, 13 LeaderboardServiceIntegrationTest, 1 LeaderboardServiceApplicationTests)
+- [x] Live E2E verified: submit scores → leaderboard updates → top-N/paginated/rank/nearby/size endpoints return correct data through gateway
+- [ ] Daily/weekly/season windowed boards (deferred to next phase)
+- [ ] WebSocket real-time push (deferred to Phase 10)
 
 ## Phase 9 — Kafka Integration
 
