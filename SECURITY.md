@@ -3,7 +3,7 @@
 **Product:** Real-Time Leaderboard System
 **Status legend:** ✅ **Implemented & tested** · **P** = Planned (phase-tracked). See [TRACKER.md](TRACKER.md) for exact state.
 
-### Implemented as of Phase 3 (sport-service)
+### Implemented as of Phase 4 (score-service)
 
 - BCrypt (strength 10) password hashing; plaintext never stored or returned.
 - JWT HS256 access tokens: secret from `JWT_SECRET` (≥ 32 bytes enforced; documented placeholder value refuses startup), default TTL 15 min (`JWT_ACCESS_TOKEN_EXPIRATION`).
@@ -19,6 +19,17 @@
 - **ADMIN-only management** (`hasRole("ADMIN")` on POST/PUT/PATCH/DELETE): sport create/update/status/delete and competition create/update/status/delete — including the nested `/api/sports/{sportId}/competitions` POST. Missing token → 401; valid USER token → 403.
 - Invalid/expired/garbage Bearer tokens are rejected by the filter (context cleared → anonymous); tampered role claims break the signature and are ignored.
 - Verified live through the gateway: anonymous reads 200, USER writes 403, ADMIN writes 201/200, no-token writes 401.
+
+#### Score Service authorization (Phase 4)
+
+- **JWT validation-only:** score-service validates tokens using the shared `JWT_SECRET` via its own `JwtService` (no token generation). Same pattern as sport-service — tokens issued by auth-service, validated locally.
+- **Authenticated endpoints** (any valid token): `POST /api/scores` (submit), `GET /api/scores/me` (own history), `GET /api/scores/{id}` (by ID — ownership enforced: USER sees own scores only, ADMIN sees any).
+- **ADMIN-only endpoints:** `GET /api/scores` (search with filters — userId, sportId, eventId, scoreType, from, to), `DELETE /api/scores/{id}` (hard delete).
+- **Ownership enforcement:** `GET /api/scores/{id}` returns 403 Forbidden when a USER attempts to access another user's score. ADMIN is exempt.
+- **Duplicate submission prevention:** optional `submissionId` is unique per user (`uk_scores_user_submission`); resubmitting returns 409 Conflict.
+- **Sport validation at submit time:** score-service calls sport-service via `@LoadBalanced RestTemplate` to verify the sport exists and is active. Returns 404 if sport missing, 409 if inactive, 503 if sport-service is unreachable. This cross-service call is the only synchronous dependency; its failure correctly rejects the submission.
+- Missing token → 401; valid USER token on ADMIN endpoint → 403.
+- Verified live through the gateway: user submits Football/Cricket/F1 scores (201), user reads own history (200), user denied other user's score (403), admin searches with filters (200), admin deletes score (200), invalid sport returns 404, duplicate submission returns 409, no auth returns 401.
 
 ### Still planned (not yet implemented)
 
@@ -70,7 +81,7 @@ Principles:
 | `REDIS_PORT` | score/leaderboard services | `6379` | |
 | `REDIS_PASSWORD` | score/leaderboard services | *(empty locally)* | required in any network-exposed Redis |
 | `KAFKA_BOOTSTRAP_SERVERS` | score/leaderboard services | `localhost:9092` | |
-| `JWT_SECRET` | auth-service, api-gateway | `replace_with_secure_random_secret` | ≥ 32 bytes; the literal placeholder value is rejected at startup |
+| `JWT_SECRET` | auth-service, sport-service, score-service, api-gateway | `replace_with_secure_random_secret` | ≥ 32 bytes; the literal placeholder value is rejected at startup |
 | `JWT_ACCESS_TOKEN_EXPIRATION` | auth-service | `900000` | ms; default 15 minutes |
 | `JWT_REFRESH_TOKEN_EXPIRATION` | auth-service | `604800000` | ms; default 7 days |
 | `EUREKA_SERVER_URL` | all services | `http://localhost:8761/eureka` | |

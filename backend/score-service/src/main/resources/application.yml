@@ -5,12 +5,34 @@ spring:
   application:
     name: score-service
 
+  datasource:
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:leaderboard_score}
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      # DEV-ONLY schema management. Production must move to Flyway/Liquibase migrations.
+      ddl-auto: update
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
 eureka:
   client:
     service-url:
       defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
+
+# Same secret as auth-service: tokens are validated locally, never issued here.
+jwt:
+  secret: ${JWT_SECRET}
 
 management:
   endpoints:
