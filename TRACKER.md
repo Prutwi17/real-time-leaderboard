@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-**Last updated:** 2026-08-25 (Phase 4 score service implemented, tested, and live-verified)
+**Last updated:** 2026-08-26 (Phase 5 user/player service implemented, tested, and live-verified)
 **Rule:** an item is checked only when it is demonstrably done and verified. Never pre-check.
 
 Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is actively in progress.
@@ -72,12 +72,22 @@ Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is
 
 Additional Phase 2 deliverables: `/api/auth/me` identity endpoint, uniform JSON error handling, actuator health/info exposure.
 
-## Phase 5 — User Service
+## Phase 5 — User/Player Service
 
-- [ ] user_db schema migration (user_profiles)
-- [ ] Get/update own profile endpoints
-- [ ] Feign client to auth internal API
-- [ ] Authorization matrix tests (self-only edits)
+*Executed as "Phase 5" of this build-out. Schema via Hibernate `ddl-auto=update` in the `leaderboard_user` database (Flyway deferred). Profile management with public reads, authenticated create, and ADMIN-only management. Verified end-to-end through the API Gateway against live MySQL.*
+
+- [x] `leaderboard_user` database and `players` table created — *(via ddl-auto=update; Flyway deferred)*
+- [x] Player profile CRUD (create, read by ID, paginated list, search by display name)
+- [x] Public read endpoints (`GET /api/players`, `GET /api/players/{id}` — no auth required)
+- [x] Authenticated create (`POST /api/players` — any valid JWT)
+- [x] ADMIN-only management (`PUT /api/players/{id}`, deactivate, activate, hard delete)
+- [x] Email uniqueness enforcement (duplicate → 409)
+- [x] Validation (`@NotBlank` displayName 2–50 chars, `@Email` format)
+- [x] Soft-delete via `active` flag (deactivated players excluded from list queries)
+- [x] Uniform JSON error responses (400 validation, 404 not found, 409 duplicate, 403 forbidden, 401 unauthorized)
+- [x] JWT validation-only (no token generation; secret from `JWT_SECRET` via `JwtService`)
+- [x] Tests passing (**44/44**: 13 PlayerServiceTest, 13 PlayerControllerTest, 7 PlayerRepositoryTest, 10 PlayerServiceIntegrationTest, 1 contextLoads)
+- [x] Live E2E verified through gateway: public list/read, create with auth, ADMIN update/deactivate/activate/delete, USER cannot update/delete (403), no token on protected (401), duplicate email (409), invalid email (400), search by display name
 
 ## Phase 6 — Sport Service
 

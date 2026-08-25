@@ -3,7 +3,7 @@
 **Product:** Real-Time Leaderboard System
 **Status legend:** ✅ **Implemented & tested** · **P** = Planned (phase-tracked). See [TRACKER.md](TRACKER.md) for exact state.
 
-### Implemented as of Phase 4 (score-service)
+### Implemented as of Phase 5 (user-service)
 
 - BCrypt (strength 10) password hashing; plaintext never stored or returned.
 - JWT HS256 access tokens: secret from `JWT_SECRET` (≥ 32 bytes enforced; documented placeholder value refuses startup), default TTL 15 min (`JWT_ACCESS_TOKEN_EXPIRATION`).
@@ -30,6 +30,17 @@
 - **Sport validation at submit time:** score-service calls sport-service via `@LoadBalanced RestTemplate` to verify the sport exists and is active. Returns 404 if sport missing, 409 if inactive, 503 if sport-service is unreachable. This cross-service call is the only synchronous dependency; its failure correctly rejects the submission.
 - Missing token → 401; valid USER token on ADMIN endpoint → 403.
 - Verified live through the gateway: user submits Football/Cricket/F1 scores (201), user reads own history (200), user denied other user's score (403), admin searches with filters (200), admin deletes score (200), invalid sport returns 404, duplicate submission returns 409, no auth returns 401.
+
+#### User Service authorization (Phase 5)
+
+- **JWT validation-only:** user-service validates tokens using the shared `JWT_SECRET` via its own `JwtService` (no token generation). Same pattern as sport/score-service — tokens issued by auth-service, validated locally.
+- **Public read endpoints** (no token required): `GET /api/players` (paginated list, active players only), `GET /api/players/{id}` (by ID). Search via `?search=` query parameter is also public.
+- **Authenticated endpoints** (any valid token): `POST /api/players` (create player profile).
+- **ADMIN-only endpoints** (require `ROLE_ADMIN`): `PUT /api/players/{id}` (update profile), `PUT /api/players/{id}/deactivate`, `PUT /api/players/{id}/activate`, `DELETE /api/players/{id}` (hard delete).
+- **Email uniqueness:** duplicate email on create/update → 409 Conflict.
+- **Soft-delete pattern:** `active` flag; deactivated players are filtered from list queries but still accessible by ID.
+- Missing token on protected endpoint → 401; valid USER token on ADMIN endpoint → 403.
+- Verified live through the gateway: public list/read (200), create with auth (201), update by ADMIN (200), deactivate/activate (204), delete by ADMIN (204), USER cannot update/delete (403), no token on protected (401), duplicate email (409), invalid email (400).
 
 ### Still planned (not yet implemented)
 
