@@ -26,7 +26,8 @@ Identity duplication rule: services store **only `user_id` + denormalized `usern
 |---|---|---|
 | `leaderboard_auth` | `users`, `refresh_tokens` | **Implemented — Phase 2** (Hibernate `ddl-auto=update` in dev; Flyway/Liquibase migrations required before production) |
 | `leaderboard_sport` | `sports`, `competitions` | **Implemented — Phase 3** (Hibernate `ddl-auto=update` in dev; migrations required before production) |
-| `user_db` / `score_db` | future tables | Future phases |
+| `leaderboard_score` | `scores` | **Implemented — Phase 4** (Hibernate `ddl-auto=update` in dev; migrations required before production) |
+| `user_db` | future tables | Future phases |
 
 > Each microservice owns its own database: auth-service uses **`leaderboard_auth`**, sport-service uses **`leaderboard_sport`** (both configurable via `MYSQL_DATABASE`). No shared schema exists.
 
@@ -113,33 +114,25 @@ erDiagram
     }
 ```
 
-### score_db (future phase)
+### `leaderboard_score` (implemented Phase 4)
 ```mermaid
 erDiagram
-    sports_ref ||--o{ scores : "sport_id (logical FK)"
-    users_ref ||--o{ scores : "user_id (logical FK)"
-    sports_ref ||--o{ score_history : "sport_id (logical FK)"
-    users_ref ||--o{ score_history : "user_id (logical FK)"
-
     scores {
         BIGINT id PK
         BIGINT user_id "logical ref -> auth_db.users"
         BIGINT sport_id "logical ref -> sport_db.sports"
-        DECIMAL_10_2 total_score "current aggregate for user+sport"
-        INTEGER submission_count
-        TIMESTAMP last_submitted_at
-        UPDATED_AT updated_at "unique (user_id, sport_id)"
-    }
-    score_history {
-        BIGINT id PK
-        BIGINT user_id "logical ref"
-        BIGINT sport_id "logical ref"
-        DECIMAL_10_2 score "this submission's value"
-        CHAR_36 event_id UK "UUID, dedupe anchor"
-        VARCHAR source "API | SEED | MIGRATION"
-        TIMESTAMP created_at
+        DECIMAL_12_2 score_value "precision 12, scale 2"
+        VARCHAR score_type "ENUM: POINTS|GOALS|RUNS|LAP_TIME|POSITION"
+        VARCHAR event_name "nullable, max 150"
+        VARCHAR event_id "nullable, max 100"
+        VARCHAR submission_id "nullable, max 64; unique per user"
+        TIMESTAMP recorded_at "event time, UTC"
+        TIMESTAMP created_at "submission time, UTC"
+        TIMESTAMP updated_at "UTC"
     }
 ```
+
+Unique constraint: `(user_id, submission_id)` — prevents duplicate submissions per user. Indexes on `(user_id, recorded_at)`, `(sport_id)`, `(event_id)`, `(recorded_at)` (production MySQL).
 
 > Cross-schema foreign keys are intentionally **logical references only** (`user_id`, `sport_id`) because the tables live in separate databases owned by separate services. Referential integrity across boundaries is enforced by validation at write time.
 
@@ -208,33 +201,23 @@ Row lazily created on first profile save; reads fall back to JWT username.
 
 Indexes: `idx_competitions_code (code)`, `idx_competitions_sport_id (sport_id)`. A competition cannot exist without a valid sport (NOT NULL FK); deleting a sport that still owns competitions is refused with HTTP 409 CONFLICT (deactivate instead).
 
-### 3.5 `score_db.scores`
-Aggregated current state per (user, sport) — mirrors what Redis holds, but durable and queryable.
-| Column | Type | Constraints |
-|---|---|---|
-| id | BIGINT | PK |
-| user_id | BIGINT | NOT NULL |
-| sport_id | BIGINT | NOT NULL |
-| total_score | DECIMAL(12,2) | NOT NULL DEFAULT 0 |
-| submission_count | INT | NOT NULL DEFAULT 0 |
-| last_submitted_at | TIMESTAMP | |
-| updated_at | TIMESTAMP | NOT NULL |
+### 3.5 `leaderboard_score.scores` — **implemented Phase 4**
+Individual score submission; each row is one immutable record. userId and sportId are plain references (no cross-database FK).
+| Column | Type | Constraints | Notes |
+|---|---|---|---|
+| id | BIGINT | PK AUTO_INCREMENT | |
+| user_id | BIGINT | NOT NULL | logical ref → auth-service users |
+| sport_id | BIGINT | NOT NULL | logical ref → sport-service sports |
+| score_value | DECIMAL(12,2) | NOT NULL | application-validated: ≥ 0, ≤ 1000000 |
+| score_type | ENUM('POINTS','GOALS','RUNS','LAP_TIME','POSITION') | NOT NULL | metadata for display; ranking always by numeric value |
+| event_name | VARCHAR(150) | | optional human label |
+| event_id | VARCHAR(100) | | optional external reference |
+| submission_id | VARCHAR(64) | UNIQUE per user (shared index) | optional idempotency key; NULL allowed for multiple non-identified scores |
+| recorded_at | TIMESTAMP | NOT NULL | event time (UTC); defaults to now if not supplied |
+| created_at | TIMESTAMP | NOT NULL | set on persist |
+| updated_at | TIMESTAMP | NOT NULL | set on persist and update |
 
-Unique(`user_id`,`sport_id`); index(`sport_id`, `total_score DESC`) supports historical verification queries.
-
-### 3.6 `score_db.score_history`
-Append-only. The single source of truth for every point ever awarded; feeds Redis rebuilds and all reports.
-| Column | Type | Constraints |
-|---|---|---|
-| id | BIGINT | PK |
-| user_id | BIGINT | NOT NULL |
-| sport_id | BIGINT | NOT NULL |
-| score | DECIMAL(12,2) | NOT NULL, CHECK (score >= 0 and <= 1000000) via app-level validation |
-| event_id | CHAR(36) | NOT NULL UNIQUE — Kafka dedupe + audit join key |
-| source | VARCHAR(20) | NOT NULL DEFAULT 'API' |
-| created_at | TIMESTAMP | NOT NULL |
-
-Indexes: `(user_id, created_at DESC)` history page; `(sport_id, created_at DESC)` period reports; unique(`event_id`).
+Unique constraint: `uk_scores_user_submission (user_id, submission_id)`. Indexes on `(user_id, recorded_at)`, `(sport_id)`, `(event_id)`, `(recorded_at)` — created via production DDL (Flyway), not Hibernate indexes.
 
 ## 4. Redis Keyspace
 

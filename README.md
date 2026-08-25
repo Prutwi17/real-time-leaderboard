@@ -4,7 +4,7 @@ A production-style, multi-sport, real-time leaderboard platform. Authenticated u
 
 > Reference project: **https://roadmap.sh/projects/realtime-leaderboard**
 >
-> Status: Phase 0 docs ✅ · Phase 1A microservice foundations ✅ · Phase 2 authentication ✅ · **Phase 3 sport service implemented, tested (55/55) and verified live through the gateway against MySQL**. Redis, Kafka, WebSocket, scoring and UI are NOT implemented yet. No live demo exists; this section will be updated only when a real deployment exists.
+> Status: Phase 0 docs ✅ · Phase 1A microservice foundations ✅ · Phase 2 authentication ✅ · Phase 3 sport service ✅ · **Phase 4 score service implemented, tested (46/46) and verified live through the gateway against MySQL**. Redis, Kafka, WebSocket, leaderboard ranking and UI are NOT implemented yet. No live demo exists; this section will be updated only when a real deployment exists.
 
 ---
 
@@ -52,7 +52,7 @@ Full diagrams: [DESIGN.md](DESIGN.md). Flows: [APPFLOW.md](APPFLOW.md).
 
 ## Technology Stack
 
-- **Backend:** Java 17 (LTS), Spring Boot 3.3.13, Spring Cloud 2023.0.5 (Eureka, Gateway; OpenFeign planned), Spring Security + JWT (planned), Spring Data JPA/Hibernate (planned), Maven Wrapper 3.3.2
+- **Backend:** Java 17 (LTS), Spring Boot 3.3.13, Spring Cloud 2023.0.5 (Eureka, Gateway), Spring Security + JWT (auth, sport, score services), Spring Data JPA/Hibernate (auth, sport, score services), Maven Wrapper 3.3.2
 - **Data:** MySQL 8, Redis 7 (Sorted Sets), Apache Kafka 3.x
 - **Real-time:** Spring WebSocket + STOMP (+ SockJS fallback)
 - **Frontend:** React 18, TypeScript (strict), Vite
@@ -70,7 +70,7 @@ Rationale for every choice: [TECHSPECS.md](TECHSPECS.md).
 | auth-service | 8081 | registration, login, JWT + refresh tokens, roles | SCHEMA §3.1–3.2 |
 | user-service | 8082 | profiles, user info/statistics | SCHEMA §3.3 |
 | sport-service | 8083 | sports CRUD, competitions, enable/disable, seeds | SCHEMA §3.4 (implemented) |
-| score-service | 8084 | submission validation, persistence, event publishing | SCHEMA §3.5–3.6 |
+| score-service | 8084 | score submission, validation, ownership, persistence, sport-service integration | SCHEMA §3.5 |
 | leaderboard-service | 8085 | boards, rank queries, Kafka consumer, WebSocket push, reports | SCHEMA §4 |
 
 ## Sport Service
@@ -102,9 +102,39 @@ curl http://localhost:8080/api/sports/code/F1
 curl -X POST http://localhost:8080/api/sports/1/competitions -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" -d '{"name":"Premier League","code":"PREMIER_LEAGUE","startDate":"2026-08-15","endDate":"2027-05-24"}'
 ```
 
+## Score Service
+
+Implemented in Phase 4 (port 8084, registers with Eureka as `SCORE-SERVICE`, database `leaderboard_score`).
+
+Score submission with sport validation (via sport-service), ownership enforcement, optional idempotency keys, and paginated queries. The service validates JWTs using the shared `JWT_SECRET` (no token generation). Sport validation happens at submit time via a `@LoadBalanced RestTemplate` call to sport-service; submissions for missing (404) or inactive (409) sports are rejected.
+
+**Score endpoints**
+
+| Method | Path | Access | Notes |
+|---|---|---|---|
+| POST | `/api/scores` | authenticated | submit score; sportId, value, scoreType required; optional eventName, eventId, submissionId |
+| GET | `/api/scores/me` | authenticated | paginated list of caller's own scores (newest first) |
+| GET | `/api/scores/{id}` | owner or ADMIN | single score by ID; USER can only read own scores |
+| GET | `/api/scores` | ADMIN | search with filters: userId, sportId, eventId, scoreType, from, to (paginated) |
+| DELETE | `/api/scores/{id}` | ADMIN | hard delete invalid submissions |
+
+**Score types:** `POINTS`, `GOALS`, `RUNS`, `LAP_TIME`, `POSITION`
+
+**Validation rules:** value ≥ 0, ≤ 1,000,000, max 2 decimal places; duplicate `submissionId` per user → 409.
+
+```bash
+curl -X POST http://localhost:8080/api/scores -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"sportId":1,"value":100,"scoreType":"GOALS","submissionId":"epl-md1","eventName":"EPL Match Day 1","eventId":"EPL-MD1"}'
+
+curl http://localhost:8080/api/scores/me -H "Authorization: Bearer $TOKEN"
+
+# Admin search
+curl "http://localhost:8080/api/scores?sportId=1&scoreType=GOALS" -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
 ## Database
 
-MySQL schemas are owned per service. The auth schema **`leaderboard_auth`** (tables `users`, `refresh_tokens`) is live as of Phase 2 and the sport schema **`leaderboard_sport`** (tables `sports`, `competitions`) is live as of Phase 3 — both via Hibernate `ddl-auto=update`; Flyway/Liquibase migrations are required before production. Other schemas arrive with their phases — full column-level specs and ER diagrams: [SCHEMA.md](SCHEMA.md). MySQL is the durable source of truth; it never serves live ranking.
+MySQL schemas are owned per service. The auth schema **`leaderboard_auth`** (tables `users`, `refresh_tokens`) is live as of Phase 2, the sport schema **`leaderboard_sport`** (tables `sports`, `competitions`) is live as of Phase 3, and the score schema **`leaderboard_score`** (table `scores`) is live as of Phase 4 — all via Hibernate `ddl-auto=update`; Flyway/Liquibase migrations are required before production. Other schemas arrive with their phases — full column-level specs and ER diagrams: [SCHEMA.md](SCHEMA.md). MySQL is the durable source of truth; it never serves live ranking.
 
 ## Redis Leaderboard
 

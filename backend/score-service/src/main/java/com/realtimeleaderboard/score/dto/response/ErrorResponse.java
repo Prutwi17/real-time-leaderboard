@@ -1,0 +1,18 @@
+package com.realtimeleaderboard.score.dto.response;
+
+import java.util.List;
+
+public record ErrorResponse(
+        int status,
+        String error,
+        String message,
+        String path,
+        List<FieldError> fieldErrors) {
+
+    public ErrorResponse(int status, String error, String message, String path) {
+        this(status, error, message, path, List.of());
+    }
+
+    public record FieldError(String field, String message) {
+    }
+}

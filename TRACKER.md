@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-**Last updated:** 2026-08-25 (Phase 3 sport service implemented, tested, and live-verified)
+**Last updated:** 2026-08-25 (Phase 4 score service implemented, tested, and live-verified)
 **Rule:** an item is checked only when it is demonstrably done and verified. Never pre-check.
 
 Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is actively in progress.
@@ -95,14 +95,19 @@ Additional Phase 3 deliverables: `SportCode` closed enum rejecting unsupported s
 
 ## Phase 7 — Score Service
 
-- [ ] score_db schema migration (scores, score_history)
-- [ ] POST /api/scores validation pipeline (user/sport/bounds/rate)
-- [ ] Transactional persistence (scores + history)
-- [ ] Paginated score history endpoint
-- [ ] Cached Feign sport validation
-- [ ] Kafka producer publishing after commit
-- [ ] Redis writer interface stubbed
-- [ ] Validation-matrix tests passing
+*Executed as "Phase 4" of this build-out. Schema via Hibernate `ddl-auto=update` in the `leaderboard_score` database (Flyway deferred). Sport validation via `@LoadBalanced RestTemplate` to sport-service. Verified end-to-end through the API Gateway against live MySQL.*
+
+- [x] score_db schema created (`leaderboard_score`: `scores`) — *(via ddl-auto=update; Flyway deferred)*
+- [x] POST /api/scores validation pipeline (sport existence + activity, value bounds, scoreType enum, unique submissionId per user)
+- [x] Transactional persistence (score entity with recordedAt/createdAt/updatedAt timestamps)
+- [x] Paginated score history endpoint (`GET /api/scores/me` — own scores, newest first)
+- [x] Sport validation via `@LoadBalanced RestTemplate` (404 missing, 409 inactive, 503 unavailable)
+- [ ] Kafka producer publishing after commit *(deferred to Phase 9)*
+- [ ] Redis writer interface stubbed *(deferred to Phase 8)*
+- [x] Admin search with filters (userId, sportId, eventId, scoreType, from, to) + paginated results
+- [x] Ownership enforcement (USER reads own scores only; ADMIN reads any; DELETE ADMIN-only)
+- [x] Validation-matrix tests passing (**46/46**: 11 ScoreServiceTest, 4 SportValidationServiceTest, 11 ScoreControllerTest, 7 ScoreRepositoryTest, 12 ScoreServiceIntegrationTest, 1 contextLoads)
+- [x] Live E2E verified: submit Football/Cricket/F1, GET /me, GET by ID, ownership 403, admin search/filter, admin delete, invalid sport 404, duplicate 409, no auth 401
 
 ## Phase 8 — Redis Leaderboard
 

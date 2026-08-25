@@ -1,3 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:scoredb;MODE=MySQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+
 eureka:
   client:
     enabled: false
+
+jwt:
+  secret: unit-test-only-secret-key-0123456789abcdef0123456789abcdef
+
+logging:
+  level:
+    com.realtimeleaderboard.score: INFO
