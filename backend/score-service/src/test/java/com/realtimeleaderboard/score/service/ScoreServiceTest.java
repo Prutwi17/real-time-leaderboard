@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.realtimeleaderboard.score.client.LeaderboardClient;
 import com.realtimeleaderboard.score.client.SportSnapshot;
 import com.realtimeleaderboard.score.dto.request.CreateScoreRequest;
 import com.realtimeleaderboard.score.dto.response.ScoreResponse;
@@ -30,9 +31,10 @@ class ScoreServiceTest {
 
     @Mock private ScoreRepository scoreRepository;
     @Mock private SportValidationService sportValidationService;
+    @Mock private LeaderboardClient leaderboardClient;
     private ScoreService scoreService;
 
-    @BeforeEach void setUp() { scoreService = new ScoreService(scoreRepository, sportValidationService); }
+    @BeforeEach void setUp() { scoreService = new ScoreService(scoreRepository, sportValidationService, leaderboardClient); }
 
     @Test
     void submitSavesScoreAfterSportValidation() {

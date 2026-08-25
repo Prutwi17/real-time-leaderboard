@@ -3,7 +3,7 @@
 **Product:** Real-Time Leaderboard System
 **Status legend:** ✅ **Implemented & tested** · **P** = Planned (phase-tracked). See [TRACKER.md](TRACKER.md) for exact state.
 
-### Implemented as of Phase 5 (user-service)
+### Implemented as of Phase 6 (leaderboard-service)
 
 - BCrypt (strength 10) password hashing; plaintext never stored or returned.
 - JWT HS256 access tokens: secret from `JWT_SECRET` (≥ 32 bytes enforced; documented placeholder value refuses startup), default TTL 15 min (`JWT_ACCESS_TOKEN_EXPIRATION`).
@@ -41,6 +41,16 @@
 - **Soft-delete pattern:** `active` flag; deactivated players are filtered from list queries but still accessible by ID.
 - Missing token on protected endpoint → 401; valid USER token on ADMIN endpoint → 403.
 - Verified live through the gateway: public list/read (200), create with auth (201), update by ADMIN (200), deactivate/activate (204), delete by ADMIN (204), USER cannot update/delete (403), no token on protected (401), duplicate email (409), invalid email (400).
+
+#### Leaderboard Service authorization (Phase 6)
+
+- **JWT validation-only:** leaderboard-service validates tokens using the shared `JWT_SECRET` via its own `JwtService` (no token generation). Same pattern as other services.
+- **Public read endpoints** (no token required): `GET /api/leaderboards/{sport}/top`, `/api/leaderboards/{sport}` (paginated), `/api/leaderboards/{sport}/players/{userId}/rank`, `/api/leaderboards/{sport}/players/{userId}/nearby`, `/api/leaderboards/{sport}/size`.
+- **Authenticated endpoint:** `GET /api/leaderboards/{sport}/me` (returns current user's rank; `@AuthenticationPrincipal` extracts userId from JWT).
+- **Internal-only endpoints** (shared-secret protected): `POST /internal/leaderboards/scores` (score update notification from score-service), `POST /internal/leaderboards/{sport}/rebuild` (rebuild board from score-service data). Protected by `X-Internal-Service-Secret` header; wrong/missing secret → 403 Forbidden.
+- **CSRF disabled, stateless session** (no cookies; Bearer tokens only).
+- Missing/invalid token on `/me` → 401; wrong internal secret → 403; unknown sport → 400.
+- Verified live through the gateway: leaderboard returns correct rankings after score submission; internal API rejects wrong secret (403) and accepts correct secret (200).
 
 ### Still planned (not yet implemented)
 
@@ -92,7 +102,8 @@ Principles:
 | `REDIS_PORT` | score/leaderboard services | `6379` | |
 | `REDIS_PASSWORD` | score/leaderboard services | *(empty locally)* | required in any network-exposed Redis |
 | `KAFKA_BOOTSTRAP_SERVERS` | score/leaderboard services | `localhost:9092` | |
-| `JWT_SECRET` | auth-service, sport-service, score-service, api-gateway | `replace_with_secure_random_secret` | ≥ 32 bytes; the literal placeholder value is rejected at startup |
+| `JWT_SECRET` | auth-service, sport-service, score-service, api-gateway, leaderboard-service | `replace_with_secure_random_secret` | ≥ 32 bytes; the literal placeholder value is rejected at startup |
+| `INTERNAL_SERVICE_SECRET` | score-service, leaderboard-service | `replace_with_secure_random_secret` | Shared secret for internal service-to-service API calls |
 | `JWT_ACCESS_TOKEN_EXPIRATION` | auth-service | `900000` | ms; default 15 minutes |
 | `JWT_REFRESH_TOKEN_EXPIRATION` | auth-service | `604800000` | ms; default 7 days |
 | `EUREKA_SERVER_URL` | all services | `http://localhost:8761/eureka` | |

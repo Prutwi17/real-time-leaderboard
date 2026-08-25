@@ -38,6 +38,10 @@ spring:
           uri: lb://leaderboard-service
           predicates:
             - Path=/api/leaderboard/**
+        - id: leaderboard-service-s
+          uri: lb://leaderboard-service
+          predicates:
+            - Path=/api/leaderboards/**
         - id: leaderboard-reports
           uri: lb://leaderboard-service
           predicates:

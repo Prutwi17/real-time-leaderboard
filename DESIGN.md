@@ -25,10 +25,9 @@ flowchart TB
     USR --- DBU[(MySQL user_db)]
     SPT --- DBS[(MySQL sport_db)]
     SCO --- DBC[(MySQL score_db)]
-    SCO --> RD[(Redis 7<br/>Sorted Sets)]
-    SCO --> K[[Kafka: score-submitted]]
-    K --> LBS
-    LBS --> RD
+    SCO -->|internal HTTP| LBS
+    SCO --> K[[Kafka: score-submitted<br/>(planned)]]
+    LBS --> RD[(Redis<br/>Sorted Sets)]
     LBS -->|STOMP over WebSocket| FE
 ```
 
@@ -68,7 +67,7 @@ Every backend service shares the same internal skeleton (package-per-feature, co
 | user-service | `user_profiles` (keyed by userId from token) | credentials (lives in auth_db) |
 | sport-service | `sports` catalog | scores/users |
 | score-service | `scores`, `score_history` | users/sports tables (uses Feign or JWT claims) |
-| leaderboard-service | Redis keyspace; reporting read-model via score-service API | writing any MySQL business table |
+| leaderboard-service | **Implemented:** Redis Sorted Sets for live ranking (all-time per sport); internal HTTP score update endpoint (X-Internal-Service-Secret); rebuild-from-history; paginated/top-N/rank/nearby read endpoints. | Daily/weekly/season windows (planned); Kafka consumer (planned); WebSocket push (planned) |
 
 Boundary rule ([RULES.md](RULES.md)): cross-service data access is **API or event only**. This is what makes "add a sport" a data change rather than a migration.
 
@@ -114,6 +113,7 @@ Full keyspace, TTLs, and command rationale in [SCHEMA.md §Redis](SCHEMA.md). Es
 - Sorted Set per scope; member = `userId` (string), score = aggregate points.
 - Live ranking commands: `ZINCRBY` (apply submission), `ZREVRANGE` (top-N page), `ZREVRANK`/`ZSCORE` (my rank/my score), `ZCARD` (participant count), `ZADD` (bootstrap/rebuild), `ZRANGE` (ascending views/debug).
 - Windowed keys (`daily`, `weekly`, season) created lazily on first write, given TTLs per retention policy; expired windows remain answerable from MySQL reports.
+> **Implemented (Phase 6):** leaderboard-service uses `LeaderboardKeyFactory` for deterministic key derivation (`FOOTBALL` → `leaderboard:football`, `CRICKET` → `leaderboard:cricket`, `F1` → `leaderboard:f1`). Score updates arrive via internal HTTP from score-service; processed-score idempotency keys (`leaderboard:processed:{scoreId}`, 72h TTL) prevent duplicate ranking increments. Read operations: `ZREVRANGE` (top-N, pagination), `ZREVRANK`+`ZSCORE` (player rank), `ZCARD` (size), `ZRANGE`+`ZREVRANGE` (nearby). Rebuild: fetch scores from score-service API, aggregate by userId, `DEL` + `ZADD` batch.
 
 ## 8. Kafka Design (summary)
 

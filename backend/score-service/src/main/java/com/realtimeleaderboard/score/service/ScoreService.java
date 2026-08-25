@@ -1,5 +1,6 @@
 package com.realtimeleaderboard.score.service;
 
+import com.realtimeleaderboard.score.client.LeaderboardClient;
 import com.realtimeleaderboard.score.client.SportSnapshot;
 import com.realtimeleaderboard.score.dto.request.CreateScoreRequest;
 import com.realtimeleaderboard.score.dto.response.PageResponse;
@@ -10,7 +11,10 @@ import com.realtimeleaderboard.score.exception.ConflictException;
 import com.realtimeleaderboard.score.exception.ForbiddenException;
 import com.realtimeleaderboard.score.exception.ResourceNotFoundException;
 import com.realtimeleaderboard.score.repository.ScoreRepository;
+import java.math.BigDecimal;
 import java.time.Instant;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -19,12 +23,17 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class ScoreService {
 
+    private static final Logger log = LoggerFactory.getLogger(ScoreService.class);
+
     private final ScoreRepository scoreRepository;
     private final SportValidationService sportValidationService;
+    private final LeaderboardClient leaderboardClient;
 
-    public ScoreService(ScoreRepository scoreRepository, SportValidationService sportValidationService) {
+    public ScoreService(ScoreRepository scoreRepository, SportValidationService sportValidationService,
+                        LeaderboardClient leaderboardClient) {
         this.scoreRepository = scoreRepository;
         this.sportValidationService = sportValidationService;
+        this.leaderboardClient = leaderboardClient;
     }
 
     @Transactional
@@ -44,7 +53,18 @@ public class ScoreService {
         score.setScoreType(request.scoreType());
         score.setSubmissionId(request.submissionId());
         // recordedAt defaults to Instant.now() via @PrePersist if null.
-        return ScoreResponse.from(scoreRepository.save(score));
+        Score saved = scoreRepository.save(score);
+
+        // Notify leaderboard-service (best-effort; failure does not rollback score)
+        try {
+            leaderboardClient.notifyScoreUpdate(
+                    userId, request.sportId(), request.value().doubleValue(),
+                    request.submissionId() != null ? request.submissionId() : String.valueOf(saved.getId()));
+        } catch (Exception e) {
+            log.warn("Leaderboard notification failed for score {}: {}", saved.getId(), e.getMessage());
+        }
+
+        return ScoreResponse.from(saved);
     }
 
     @Transactional(readOnly = true)

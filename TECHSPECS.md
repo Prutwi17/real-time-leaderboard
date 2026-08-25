@@ -20,7 +20,7 @@ This document records *what* we build with and *why*. It is not a tutorial; rati
 | Internal calls | **OpenFeign** | via Spring Cloud | Declarative REST clients with Eureka load balancing — e.g., Score Service → Sport Service to validate a sport without duplicating sport data or hardcoding URLs. |
 | Security | **Spring Security + JWT (JJWT/nimbus)** | Boot-managed | Stateless auth fits microservices: gateway validates once, services trust claims after re-checking signature/expiry. BCrypt for password hashing (deliberately slow, salted). |
 | Persistence | **MySQL 8.x + Spring Data JPA / Hibernate** | 8.x | ACID source of truth for users, sports, scores, history. JPA removes boilerplate; Hibernate handles dialect details. Database-per-service (see [SCHEMA.md §Ownership](SCHEMA.md)). |
-| Hot state | **Redis 7.x — Sorted Sets** | 7.x | Sorted Sets are *the* data structure for leaderboards: O(log N) inserts, O(log N) rank queries, O(log N + M) range reads. MySQL `ORDER BY` cannot serve live ranking at this cost. Redis also gives TTLs for daily/weekly windows and atomic ops (`ZINCRBY`). |
+| Hot state | **Redis 7.x — Sorted Sets** — **Implemented Phase 6** (leaderboard-service; Windows 5.0.14.1 used locally) | 7.x | Sorted Sets are *the* data structure for leaderboards: O(log N) inserts, O(log N) rank queries, O(log N + M) range reads. MySQL `ORDER BY` cannot serve live ranking at this cost. Redis also gives TTLs for daily/weekly windows and atomic ops (`ZINCRBY`). |
 | Events | **Apache Kafka** | 3.x (KRaft) | Durable, replayable log decoupling score ingestion from fan-out (leaderboards, future fraud/analytics consumers). Absorbs bursts; consumers replay history on rebuild. |
 | Real-time push | **Spring WebSocket + STOMP** | Boot-managed | Server-push so React clients never poll/refresh. STOMP adds pub/sub semantics (`/topic/...`) over one socket per client; SockJS fallback for restrictive networks. |
 | Frontend | **React 18 + TypeScript 5 + Vite 5** | current stable | Component model suits leaderboard widgets; TS strict mode catches contract drift against backend DTOs; Vite gives instant HMR and simple builds. |
@@ -43,6 +43,8 @@ Version pairing rationale: Spring Boot 3.3.x runs on Java 17+, and the Spring Cl
 
 Build layout decision (Phase 1A): each of the seven services is a **standalone** Spring Boot Maven project with its own wrapper and POM, making every service independently buildable (`backend/<svc>/.\mvnw.cmd`). The cross-service version pinning originally envisioned via a shared parent reactor POM is achieved by identical `<spring-cloud.version>2023.0.5</spring-cloud.version>` properties and identical starter-parent versions in all seven POMs.
 
+> **Redis integration (Phase 6):** leaderboard-service uses Spring Data Redis with `StringRedisTemplate` for Sorted Set operations. Score-service notifies leaderboard-service via `@LoadBalanced RestTemplate` (not OpenFeign) after MySQL commit. Internal API protected by shared `X-Internal-Service-Secret` header. Windows Redis 5.0.14.1 (tporadowski port) used locally; all operations work correctly despite health check reporting DOWN.
+
 Explicitly **not** used in V1: Spring Config Server (env vars suffice), Kubernetes (Compose first), virtual threads / any Java 21+ features, GraphQL.
 
 ---
@@ -59,9 +61,9 @@ React (Vite dev server / static build)
         │ lb:// via Eureka (:8761)
 ┌───────┼───────────────┬───────────────┬───────────────┬───────────────┐
 ▼       ▼               ▼               ▼               ▼               ▼
-auth    user            sport           score       leaderboard-service
+auth    user            sport           score       leaderboard-service (Redis-backed)
 :8081   :8082           :8083           :8084            :8085
- │MySQL │MySQL          │MySQL          │MySQL           │Redis ◄─ Kafka ◄─ score-service
+ │MySQL │MySQL          │MySQL          │MySQL           │Redis ◄─ HTTP ◄─ score-service
  └─users│─user_profiles └─sports        ├─scores         └─WebSocket push
   └refresh_tokens                       └─score_history
 ```
