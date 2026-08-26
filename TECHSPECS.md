@@ -97,10 +97,17 @@ All external traffic: `React → API Gateway → {service}`. The gateway is the 
 - Why async: the write path must not block on fan-out work (Redis updates, WS broadcasts), and future consumers (analytics, fraud) plug in without touching score-service.
 
 ### 3.4 Real-time push
-Leaderboard Service → WebSocket (STOMP) topics:
-- `/topic/leaderboard/global`
-- `/topic/leaderboard/{sportCode}` (derived from data — new sports get topics automatically)
-- `/queue/user-rank/{userId}` (personal rank nudges)
+Leaderboard Service → WebSocket/STOMP:
+- Endpoint: `/ws` (with SockJS fallback)
+- Application destination prefix: `/app`
+- Broker destination prefix: `/topic`
+- Leaderboard topics: `/topic/leaderboards/football`, `/topic/leaderboards/cricket`, `/topic/leaderboards/f1`
+- Broadcast: top-N leaderboard snapshot (default 10, configurable via `leaderboard.websocket.top-n`)
+- Heartbeat: 10s intervals (2-thread pool)
+- CORS: configurable via `WEBSOCKET_ALLOWED_ORIGINS` (default: `http://localhost:3000,http://localhost:5173`)
+- Gateway routing: `/ws/**` → `lb:ws://leaderboard-service`
+- Server-only publishing via `SimpMessagingTemplate`; clients may only subscribe
+- REST remains responsible for initial page load; WebSocket provides live updates after subscription
 
 ### 3.5 Discovery
 Every service registers with Eureka and resolves peers by name. No service knows another's IP/port. Gateway routes use `lb://<service-id>`.

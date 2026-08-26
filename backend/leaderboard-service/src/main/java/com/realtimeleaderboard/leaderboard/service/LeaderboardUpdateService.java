@@ -1,7 +1,7 @@
 package com.realtimeleaderboard.leaderboard.service;
 
 import com.realtimeleaderboard.leaderboard.dto.request.LeaderboardScoreUpdateRequest;
-import com.realtimeleaderboard.leaderboard.dto.response.MessageResponse;
+import com.realtimeleaderboard.leaderboard.dto.response.ScoreUpdateResult;
 import com.realtimeleaderboard.leaderboard.exception.ForbiddenException;
 import com.realtimeleaderboard.leaderboard.exception.InvalidSportException;
 import com.realtimeleaderboard.leaderboard.redis.LeaderboardKeyFactory;
@@ -41,7 +41,7 @@ public class LeaderboardUpdateService {
         }
     }
 
-    public MessageResponse processScoreUpdate(LeaderboardScoreUpdateRequest request) {
+    public ScoreUpdateResult processScoreUpdate(LeaderboardScoreUpdateRequest request) {
         String sport = resolveSportFromId(request.sportId());
         if (!keyFactory.isSupportedSport(sport)) {
             throw new InvalidSportException("Unsupported sportId: " + request.sportId());
@@ -52,7 +52,7 @@ public class LeaderboardUpdateService {
 
         if (redisRepository.isProcessedScore(processedKey)) {
             log.info("Score {} already processed; skipping", scoreId);
-            return new MessageResponse("Score already processed");
+            return new ScoreUpdateResult("Score already processed", false, sport);
         }
 
         try {
@@ -61,7 +61,7 @@ public class LeaderboardUpdateService {
             redisRepository.setProcessedScore(processedKey, processedScoreTtlHours);
             log.info("Updated leaderboard: sport={}, userId={}, score={}, scoreId={}",
                     sport, request.userId(), request.score(), scoreId);
-            return new MessageResponse("Leaderboard updated");
+            return new ScoreUpdateResult("Leaderboard updated", true, sport);
         } catch (Exception e) {
             log.error("Failed to update leaderboard for scoreId={}: {}", scoreId, e.getMessage());
             throw new com.realtimeleaderboard.leaderboard.exception.ServiceUnavailableException(

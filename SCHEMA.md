@@ -291,6 +291,33 @@ Rules:
 - `scoreId` references the MySQL `scores.id` primary key.
 - No PII beyond ids; never credentials ([RULES.md §Kafka](RULES.md)).
 
+## 5b. WebSocket Message Schema
+
+Topic: `/topic/leaderboards/{sport}` · Transport: STOMP over WebSocket (SockJS fallback) · Format: JSON.
+
+```json
+{
+  "eventId": "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+  "eventType": "LEADERBOARD_UPDATED",
+  "sport": "FOOTBALL",
+  "timestamp": "2026-08-26T00:23:17.649Z",
+  "leaderboard": {
+    "sport": "FOOTBALL",
+    "entries": [
+      {"rank": 1, "userId": 101, "score": 950.0},
+      {"rank": 2, "userId": 102, "score": 880.0}
+    ],
+    "totalPlayers": 2
+  }
+}
+```
+
+Rules:
+- `eventType` is server-controlled; clients must not fabricate event types.
+- `entries` contains the top-N snapshot (default 10, configurable via `leaderboard.websocket.top-n`).
+- Server is the only publisher; clients subscribe only. No client-to-server leaderboard messages.
+- Broadcast occurs only after successful Redis update; Redis failure → no broadcast.
+
 ## 6. Retention Summary
 
 | Store | What is kept forever | What expires |

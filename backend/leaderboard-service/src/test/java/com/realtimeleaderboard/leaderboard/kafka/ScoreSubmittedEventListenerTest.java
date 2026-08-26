@@ -8,10 +8,11 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.realtimeleaderboard.leaderboard.dto.request.LeaderboardScoreUpdateRequest;
-import com.realtimeleaderboard.leaderboard.dto.response.MessageResponse;
+import com.realtimeleaderboard.leaderboard.dto.response.ScoreUpdateResult;
 import com.realtimeleaderboard.leaderboard.exception.InvalidSportException;
 import com.realtimeleaderboard.leaderboard.redis.LeaderboardKeyFactory;
 import com.realtimeleaderboard.leaderboard.service.LeaderboardUpdateService;
+import com.realtimeleaderboard.leaderboard.websocket.LeaderboardUpdatePublisher;
 import java.time.Instant;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,17 +27,18 @@ class ScoreSubmittedEventListenerTest {
 
     @Mock private LeaderboardUpdateService updateService;
     @Mock private LeaderboardKeyFactory keyFactory;
+    @Mock private LeaderboardUpdatePublisher updatePublisher;
     @Mock private Acknowledgment acknowledgment;
     private ScoreSubmittedEventListener listener;
 
     @BeforeEach
     void setUp() {
-        listener = new ScoreSubmittedEventListener(updateService, keyFactory);
+        listener = new ScoreSubmittedEventListener(updateService, keyFactory, updatePublisher);
     }
 
     @Test
     void validEventCallsUpdateService() {
-        when(updateService.processScoreUpdate(any())).thenReturn(new MessageResponse("Leaderboard updated"));
+        when(updateService.processScoreUpdate(any())).thenReturn(new ScoreUpdateResult("Leaderboard updated", true, "FOOTBALL"));
 
         ScoreSubmittedEvent event = new ScoreSubmittedEvent(
                 "evt-1", 1, "score-1", 10L, 1L, 100.0, "GOALS", "EPL",
@@ -120,7 +122,7 @@ class ScoreSubmittedEventListenerTest {
 
     @Test
     void footballEventIsProcessed() {
-        when(updateService.processScoreUpdate(any())).thenReturn(new MessageResponse("Updated"));
+        when(updateService.processScoreUpdate(any())).thenReturn(new ScoreUpdateResult("Updated", true, "FOOTBALL"));
         ScoreSubmittedEvent event = new ScoreSubmittedEvent(
                 "evt-1", 1, "score-1", 10L, 1L, 95.0, "GOALS", "EPL",
                 Instant.now(), Instant.now());
@@ -135,7 +137,7 @@ class ScoreSubmittedEventListenerTest {
 
     @Test
     void cricketEventIsProcessed() {
-        when(updateService.processScoreUpdate(any())).thenReturn(new MessageResponse("Updated"));
+        when(updateService.processScoreUpdate(any())).thenReturn(new ScoreUpdateResult("Updated", true, "CRICKET"));
         ScoreSubmittedEvent event = new ScoreSubmittedEvent(
                 "evt-1", 1, "score-1", 20L, 2L, 82.0, "RUNS", "IPL",
                 Instant.now(), Instant.now());
@@ -150,7 +152,7 @@ class ScoreSubmittedEventListenerTest {
 
     @Test
     void f1EventIsProcessed() {
-        when(updateService.processScoreUpdate(any())).thenReturn(new MessageResponse("Updated"));
+        when(updateService.processScoreUpdate(any())).thenReturn(new ScoreUpdateResult("Updated", true, "F1"));
         ScoreSubmittedEvent event = new ScoreSubmittedEvent(
                 "evt-1", 1, "score-1", 30L, 3L, 85.5, "LAP_TIME", "Monaco",
                 Instant.now(), Instant.now());

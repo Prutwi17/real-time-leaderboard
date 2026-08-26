@@ -46,6 +46,10 @@ spring:
           uri: lb://leaderboard-service
           predicates:
             - Path=/api/reports/**
+        - id: leaderboard-websocket
+          uri: lb:ws://leaderboard-service
+          predicates:
+            - Path=/ws/**
 
 eureka:
   client:

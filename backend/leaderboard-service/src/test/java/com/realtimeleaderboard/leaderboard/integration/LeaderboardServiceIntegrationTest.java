@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.realtimeleaderboard.leaderboard.dto.request.LeaderboardScoreUpdateRequest;
 import com.realtimeleaderboard.leaderboard.dto.response.LeaderboardResponse;
-import com.realtimeleaderboard.leaderboard.dto.response.MessageResponse;
+import com.realtimeleaderboard.leaderboard.dto.response.ScoreUpdateResult;
 import com.realtimeleaderboard.leaderboard.dto.response.PlayerRankResponse;
 import com.realtimeleaderboard.leaderboard.dto.response.SizeResponse;
 import com.realtimeleaderboard.leaderboard.exception.InvalidSportException;
@@ -141,7 +141,7 @@ class LeaderboardServiceIntegrationTest {
         LeaderboardScoreUpdateRequest request = new LeaderboardScoreUpdateRequest(101L, 1L, 100.0, "idempotent-1");
         updateService.processScoreUpdate(request);
 
-        MessageResponse second = updateService.processScoreUpdate(request);
+        ScoreUpdateResult second = updateService.processScoreUpdate(request);
         assertEquals("Score already processed", second.message());
 
         PlayerRankResponse rank = leaderboardService.getPlayerRank("FOOTBALL", 101L);

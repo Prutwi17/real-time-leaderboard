@@ -147,6 +147,8 @@ Status legend: **P** = Planned (phase-tracked). Nothing is claimed complete pre-
 | T-14 | Score tampering | Client-side manipulation, replayed submissions | Server-side validation of ranges/rates; immutable history rows; rate limiting; anomaly reporting (Phase 12+) | P |
 | T-15 | Replay / double-processing | Kafka redelivery duplicating increments | Consumer idempotency on `eventId` (Redis marker + unique DB constraint backstop) | P (Phase 9) |
 | T-16 | Dependency vulnerabilities | Known CVEs in libraries | Boot/Cloud managed versions kept current; dependency-check scan added with CI hardening (Phase 13) | P |
+| T-17 | WebSocket injection | Client publishing to `/topic` or forging leaderboard data | Server-only publishing via SimpMessagingTemplate; clients restricted to `/topic` subscriptions; no client-to-server leaderboard messages trusted | Active (Phase 8) |
+| T-18 | WebSocket origin bypass | Cross-origin WebSocket connections | CORS allow-list via `WEBSOCKET_ALLOWED_ORIGINS` env; SockJS origin check enabled; no wildcard origins | Active (Phase 8) |
 
 ## 6. Reporting & Response
 

@@ -30,7 +30,8 @@ public class InternalLeaderboardController {
             @RequestHeader("X-Internal-Service-Secret") String secret,
             @Valid @RequestBody LeaderboardScoreUpdateRequest request) {
         updateService.validateInternalSecret(secret);
-        return updateService.processScoreUpdate(request);
+        var result = updateService.processScoreUpdate(request);
+        return new MessageResponse(result.message());
     }
 
     @PostMapping("/{sport}/rebuild")

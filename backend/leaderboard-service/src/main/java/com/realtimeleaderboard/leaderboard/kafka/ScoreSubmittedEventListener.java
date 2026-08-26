@@ -1,9 +1,11 @@
 package com.realtimeleaderboard.leaderboard.kafka;
 
 import com.realtimeleaderboard.leaderboard.dto.request.LeaderboardScoreUpdateRequest;
+import com.realtimeleaderboard.leaderboard.dto.response.ScoreUpdateResult;
 import com.realtimeleaderboard.leaderboard.exception.InvalidSportException;
 import com.realtimeleaderboard.leaderboard.redis.LeaderboardKeyFactory;
 import com.realtimeleaderboard.leaderboard.service.LeaderboardUpdateService;
+import com.realtimeleaderboard.leaderboard.websocket.LeaderboardUpdatePublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -20,11 +22,14 @@ public class ScoreSubmittedEventListener {
 
     private final LeaderboardUpdateService updateService;
     private final LeaderboardKeyFactory keyFactory;
+    private final LeaderboardUpdatePublisher updatePublisher;
 
     public ScoreSubmittedEventListener(LeaderboardUpdateService updateService,
-                                       LeaderboardKeyFactory keyFactory) {
+                                       LeaderboardKeyFactory keyFactory,
+                                       LeaderboardUpdatePublisher updatePublisher) {
         this.updateService = updateService;
         this.keyFactory = keyFactory;
+        this.updatePublisher = updatePublisher;
     }
 
     @KafkaListener(
@@ -58,7 +63,10 @@ public class ScoreSubmittedEventListener {
                     event.scoreValue(),
                     event.eventId()
             );
-            updateService.processScoreUpdate(request);
+            ScoreUpdateResult result = updateService.processScoreUpdate(request);
+            if (result.updated()) {
+                updatePublisher.broadcastLeaderboardUpdate(event.eventId(), result.sport());
+            }
             acknowledgment.acknowledge();
             log.info("Successfully processed score event: eventId={}, scoreId={}", event.eventId(), event.scoreId());
         } catch (InvalidSportException e) {
