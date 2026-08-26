@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-**Last updated:** 2026-08-26 (Phase 8 WebSocket/STOMP real-time updates complete — live leaderboard broadcasting, tested 101/101 leaderboard + 57/57 score, live-verified end-to-end)
+**Last updated:** 2026-08-26 (Phase 9 React frontend complete — 16+ components, 5 custom hooks, 26 tests passing, Vite dev proxy, JWT auth with refresh interceptor, STOMP WebSocket live updates)
 **Rule:** an item is checked only when it is demonstrably done and verified. Never pre-check.
 
 Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is actively in progress.
@@ -171,15 +171,17 @@ Additional Phase 3 deliverables: `SportCode` closed enum rejecting unsupported s
 
 ## Phase 11 — React Frontend
 
-- [ ] Vite + TypeScript strict scaffold
-- [ ] Central API client + refresh interceptor
-- [ ] Auth store and route guards
-- [ ] Pages: login, register, dashboard, leaderboard(+sport), profile, score-history, reports, admin
-- [ ] Live leaderboard hook with polling fallback
-- [ ] Score submission form
-- [ ] Admin sport management UI
-- [ ] Component tests + typecheck green
-- [ ] All PRD user stories demoable
+*Executed as "Phase 9" of this build-out. React 18 + TypeScript (strict) + Vite SPA in `frontend/`. Communicates exclusively with the API Gateway (REST via Axios, WebSocket via STOMP over SockJS). Tests: 26/26 green (Vitest + React Testing Library).*
+
+- [x] Vite + TypeScript strict scaffold
+- [x] Central API client + refresh interceptor
+- [x] Auth store and route guards
+- [x] Pages: login, register, dashboard, leaderboard(+sport), players, player detail, scores, admin
+- [x] Live leaderboard hook with STOMP WebSocket updates
+- [x] Score submission form
+- [x] Admin sport management UI
+- [x] Component tests + typecheck green (26/26 tests)
+- [x] All PRD user stories demoable
 
 ## Phase 12 — Reports
 

@@ -244,7 +244,36 @@ Roles: `USER`, `ADMIN`; `/api/auth/admin/**` is ADMIN-only. Full security design
 
 ## Frontend
 
-React + TypeScript strict + Vite SPA talking exclusively to the API Gateway: login/register, dashboard, global + sport leaderboards (live), score submission, history, reports, admin panel. Layout: [DESIGN.md §10](DESIGN.md).
+React 18 + TypeScript (strict) + Vite SPA in `frontend/`. Communicates exclusively with the API Gateway (REST via Axios, WebSocket via STOMP over SockJS). Layout: [DESIGN.md §10](DESIGN.md). Full README: [frontend/README.md](frontend/README.md).
+
+**Tech stack:** React 18, TypeScript 5 (strict), Vite 5, Tailwind CSS, React Router v6, Axios, STOMP.js, SockJS.
+
+**Dev server:** `npm run dev` → http://localhost:5173 (Vite proxies `/api` and `/ws` to gateway at :8080).
+
+**Routes:**
+
+| Path | Page | Auth |
+|---|---|---|
+| `/` | Dashboard | No |
+| `/login` | Login | No |
+| `/register` | Register | No |
+| `/leaderboards/:sport` | Live leaderboard per sport | No |
+| `/players` | Player directory | No |
+| `/players/:id` | Player profile | No |
+| `/scores` | Score submission + history | Yes |
+| `/admin` | Admin panel (sport management) | Yes (ADMIN) |
+
+**Key patterns:**
+- Centralized Axios instance with JWT authorization interceptor.
+- Token refresh interceptor: catches 401s, refreshes silently, retries once.
+- STOMP WebSocket: subscribe to `/topic/leaderboards/{sport}` for live updates; REST snapshot on initial load.
+- Custom hooks: `useWebSocket`, `useLeaderboard`, `usePlayer`, `useScores`, `useScoreSubmit`.
+- 16+ reusable components (LeaderboardTable, RankBadge, ScoreForm, SportTabs, etc.).
+- No mock data or hardcoded player names in production code.
+
+**Tests:** `npm run test` — 26 tests passing (Vitest + React Testing Library).
+
+**Build:** `npm run build` → `frontend/dist/` (static assets for nginx or CDN).
 
 ## Project Structure
 

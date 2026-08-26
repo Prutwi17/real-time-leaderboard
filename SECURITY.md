@@ -52,6 +52,17 @@
 - Missing/invalid token on `/me` → 401; wrong internal secret → 403; unknown sport → 400.
 - Verified live through the gateway: leaderboard returns correct rankings after score submission; internal API rejects wrong secret (403) and accepts correct secret (200).
 
+#### Frontend Security (Phase 11)
+
+- **JWT storage:** access token and refresh token stored in `localStorage`. Short-lived access token (15 min default) limits exposure window; refresh token used silently by the Axios interceptor.
+- **Token refresh interceptor:** Axios response interceptor catches 401 responses, exchanges the refresh token for a new access token via `/api/auth/refresh`, and retries the failed request once. If refresh fails, tokens are cleared and the user is redirected to `/login`.
+- **No direct microservice URLs:** frontend talks exclusively to the API Gateway (`VITE_API_BASE_URL`). No backend service URLs are hardcoded in client code.
+- **Route guards:** React Router guards check `localStorage` for a valid token before rendering protected pages (`/scores`, `/admin`). Admin routes additionally verify the `ADMIN` role claim decoded from the JWT.
+- **XSS protection:** React auto-escapes all rendered content; no `dangerouslySetInnerHTML` usage. Input length and format constraints enforced on forms.
+- **No sensitive data in client code:** environment variables prefixed with `VITE_` are the only configuration exposed. No secrets, API keys, or service URLs beyond the gateway base URL.
+- **WebSocket origin control:** STOMP/SockJS connections go through the gateway; `WEBSOCKET_ALLOWED_ORIGINS` env var restricts cross-origin WebSocket connections.
+- **CSRF:** Stateless Bearer-token APIs (no cookie sessions) make CSRF largely moot; STOMP requires explicit connect headers.
+
 ### Still planned (not yet implemented)
 
 - Refresh-token rotation with reuse detection (currently validate-and-revoke only).

@@ -30,6 +30,23 @@ This document records *what* we build with and *why*. It is not a tutorial; rati
 | DevOps | **Docker + Docker Compose v2** | current | One command brings up MySQL, Redis, Kafka, 7 JVM services, frontend. Identical images are promotable beyond local later. |
 | SCM/CI | **Git + GitHub (+ Actions placeholder)** | — | Monorepo strategy documented in [README](README.md#git-workflow); CI workflow scaffolded under `.github/workflows/ci.yml`, enabled when modules exist. |
 
+### Frontend stack (Phase 11 — implemented)
+
+| Component | Version | Notes |
+|---|---|---|
+| React | 18.x | SPA framework; hooks-based components |
+| TypeScript | 5.x (strict: true) | Catches contract drift against backend DTOs |
+| Vite | 5.x | Dev server with HMR, production bundler |
+| Tailwind CSS | 3.x | Utility-first CSS framework |
+| React Router | v6.x | Client-side routing with route guards |
+| Axios | 1.x | HTTP client; centralized instance with interceptors |
+| STOMP.js | 1.x | STOMP protocol over WebSocket for live updates |
+| SockJS | 1.x | WebSocket fallback for restrictive networks |
+| Vitest | 1.x | Unit/component test runner |
+| @testing-library/react | 14.x | Component testing utilities |
+
+Vite dev server proxies `/api` and `/ws` to the gateway (`:8080`), eliminating CORS issues during development. Production build produces static files in `frontend/dist/`. No global state library — server state via Axios queries + WebSocket patches is sufficient for V1.
+
 ### Implemented baseline (as of Phase 1A)
 
 | Component | Version | Notes |

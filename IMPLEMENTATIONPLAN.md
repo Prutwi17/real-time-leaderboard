@@ -120,6 +120,8 @@ Each phase lists Objective, Tasks, Expected files, Dependencies, Testing require
 - **Testing:** Component/unit tests (vitest + testing-library) for critical widgets; typecheck strict; manual E2E script for all user stories.
 - **Completion criteria:** All PRD user stories demoable in browser against local stack.
 
+> As-built note (Phase 11, executed as "Phase 9"): React 18 + TypeScript (strict) + Vite 5 + Tailwind CSS SPA in `frontend/`. All REST communication through Axios with centralized instance and gateway base URL (`VITE_API_BASE_URL`). JWT auth: tokens stored in `localStorage`, Axios interceptor attaches Bearer token to every request, refresh interceptor catches 401s and silently refreshes via `/api/auth/refresh`. WebSocket: STOMP over SockJS connecting to `/ws` endpoint, subscribing to `/topic/leaderboards/{sport}` for live leaderboard updates. Custom hooks: `useWebSocket`, `useLeaderboard`, `usePlayer`, `useScores`, `useScoreSubmit`. 16+ reusable components (LeaderboardTable, RankBadge, ScoreForm, SportTabs, PlayerCard, etc.). Routes: `/`, `/login`, `/register`, `/leaderboards/:sport`, `/players`, `/players/:id`, `/scores` (auth required), `/admin` (ADMIN role required). Route guards enforce authentication and role checks. Vite dev proxy forwards `/api` and `/ws` to `localhost:8080` (gateway). No mock data or hardcoded player names in production code. Tests: 26/26 green (Vitest + React Testing Library). Build: `npm run build` produces `frontend/dist/` static assets.
+
 ## PHASE 12 — Reports
 - **Objective:** Period reporting backed by MySQL truth.
 - **Tasks:** `/api/reports/top-players` (ADMIN + range params) aggregating `score_history` via score-service read API; participation metrics; CSV export (nice-to-have); wire Reports page.

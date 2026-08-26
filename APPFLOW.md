@@ -304,7 +304,77 @@ Every 5xx carries a `correlationId`; the client surfaces it for support. Contrac
 
 ---
 
-## Flow 15 — Logout / Token Refresh
+## Flow 15 — Frontend Auth (Token Refresh Interceptor)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant FE as React SPA
+    participant GW as API Gateway
+    participant A as auth-service
+
+    U->>FE: login (credentials)
+    FE->>GW: POST /api/auth/login
+    GW->>A: forward
+    A-->>FE: 200 {accessToken, refreshToken, expiresIn}
+    FE->>FE: store both tokens in localStorage
+
+    Note over FE: subsequent requests
+    FE->>GW: GET /api/scores/me + Bearer <accessToken>
+    alt token valid
+        GW-->>FE: 200 {scores}
+    else 401 expired
+        GW-->>FE: 401
+        FE->>GW: POST /api/auth/refresh {refreshToken}
+        GW->>A: forward
+        A-->>FE: 200 {new accessToken, new refreshToken}
+        FE->>FE: update localStorage, retry original request
+        FE->>GW: GET /api/scores/me + Bearer <newAccessToken>
+        GW-->>FE: 200 {scores}
+    end
+```
+
+Key behaviors:
+- Axios interceptor attaches `Authorization: Bearer <token>` to every request.
+- Refresh interceptor catches 401s, calls `/api/auth/refresh` once, updates tokens, retries the failed request.
+- If refresh fails (invalid/expired refresh token), user is redirected to `/login` and tokens are cleared.
+
+---
+
+## Flow 16 — Frontend WebSocket Subscription
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant FE as React SPA
+    participant GW as API Gateway
+    participant LB as leaderboard-service
+
+    FE->>GW: GET /api/leaderboards/football/top?limit=10 (REST snapshot)
+    GW->>LB: lb://leaderboard-service
+    LB-->>FE: 200 {entries: [...]}
+
+    FE->>GW: CONNECT /ws (STOMP over SockJS)
+    GW->>LB: lb:ws://leaderboard-service
+
+    FE->>GW: SUBSCRIBE /topic/leaderboards/football
+
+    Note over LB: score submitted via Kafka → Redis → broadcast
+    LB->>GW: SEND /topic/leaderboards/football {entries, totalPlayers}
+    GW-->>FE: push frame
+    FE->>FE: update leaderboard state, re-render
+
+    Note over FE: user navigates away or disconnects
+    FE->>GW: UNSUBSCRIBE /topic/leaderboards/football
+```
+
+Client lifecycle: snapshot-on-subscribe (REST first, then WebSocket live); automatic reconnect with exponential backoff on disconnect; no polling fallback needed.
+
+---
+
+## Flow 17 — Logout / Token Refresh (Backend)
 
 ```mermaid
 sequenceDiagram
