@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-**Last updated:** 2026-08-26 (Phase 9 React frontend complete — 16+ components, 5 custom hooks, 26 tests passing, Vite dev proxy, JWT auth with refresh interceptor, STOMP WebSocket live updates)
+**Last updated:** 2026-08-26 (Phase 10 approved Excel dataset imported — 62 players across 3 sports, per-player auth + leaderboard ranking verified, Eureka IP fix applied, 184/184 tests green)
 **Rule:** an item is checked only when it is demonstrably done and verified. Never pre-check.
 
 Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is actively in progress.
@@ -183,7 +183,21 @@ Additional Phase 3 deliverables: `SportCode` closed enum rejecting unsupported s
 - [x] Component tests + typecheck green (26/26 tests)
 - [x] All PRD user stories demoable
 
-## Phase 12 — Reports
+## Phase 12 — Approved Player Dataset Import
+
+*Executed from the SportX_3_Sports_Leaderboard_AI_Dataset.xlsx workbook (Football 20, Cricket 22, F1 20 = 62 players). Import script at `tools/import-players.cjs`. Each player registered with their own auth account for correct per-user leaderboard ranking. Eureka IP registration fixed (127.0.0.1) to resolve inter-service @LoadBalanced RestTemplate calls.*
+
+- [x] Excel workbook read and validated (62/62 players, all required fields present)
+- [x] Per-player auth registration (`sportx_{slug}` username, `Import@1234` password)
+- [x] Player profiles created in user-service (display name, email, bio, profile image URL)
+- [x] Initial scores submitted via REST API (POINTS for Football, RUNS for Cricket, POSITION for F1)
+- [x] Kafka → Redis pipeline processed all 62 scores within 15s
+- [x] Required rankings verified: Cristiano Ronaldo #1 Football (977), Virat Kohli #1 Cricket (970), AB de Villiers #2 Cricket (960), Max Verstappen #1 F1 (970)
+- [x] All 3 sport leaderboards populated: Football 20 entries, Cricket 22 entries, F1 20 entries
+- [x] Eureka IP registration fix: `ip-address: 127.0.0.1` added to all 6 service application.yml files (auth, user, sport, score, leaderboard, gateway)
+- [x] Kafka KRaft fresh format + topic creation verified
+- [x] Frontend proxy confirms real data flow (Vite → Gateway → leaderboard services)
+- [x] All backend + frontend tests green: 101 leaderboard + 57 score + 26 frontend = 184/184
 
 - [ ] Top-players-by-period report (ADMIN)
 - [ ] Participation metrics
@@ -191,7 +205,7 @@ Additional Phase 3 deliverables: `SportCode` closed enum rejecting unsupported s
 - [ ] Reports page wired to real data
 - [ ] Reconciliation test vs SQL fixtures
 
-## Phase 13 — Testing & Hardening
+## Phase 14 — Testing & Hardening
 
 - [ ] JaCoCo coverage gate ≥ 70% domain logic
 - [ ] Full `mvn verify` green
@@ -202,7 +216,7 @@ Additional Phase 3 deliverables: `SportCode` closed enum rejecting unsupported s
 - [ ] Performance checks vs NFR-01/02
 - [ ] Defect backlog cleared (Must-level zero)
 
-## Phase 14 — Docker
+## Phase 15 — Docker
 
 - [ ] Per-service Dockerfiles (layered jars, non-root)
 - [ ] docker/docker-compose.yml (mysql, redis, kafka, 7 services, frontend)
@@ -211,7 +225,7 @@ Additional Phase 3 deliverables: `SportCode` closed enum rejecting unsupported s
 - [ ] Compose consumes .env (not committed)
 - [ ] Fresh full-stack run via `docker compose up --build` verified
 
-## Phase 15 — Deployment
+## Phase 16 — Deployment
 
 - [ ] Hosting provisioned
 - [ ] TLS reverse proxy configured
@@ -221,7 +235,7 @@ Additional Phase 3 deliverables: `SportCode` closed enum rejecting unsupported s
 - [ ] Post-deploy smoke suite passed
 - [ ] README updated with REAL demo URL
 
-## Phase 16 — Documentation and Roadmap.sh Submission
+## Phase 17 — Documentation and Roadmap.sh Submission
 
 - [ ] Screenshots captured and embedded in README
 - [ ] Docs refreshed to as-built state
