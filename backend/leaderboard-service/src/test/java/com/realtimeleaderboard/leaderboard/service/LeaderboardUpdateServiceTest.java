@@ -5,7 +5,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.realtimeleaderboard.leaderboard.dto.request.LeaderboardScoreUpdateRequest;
-import com.realtimeleaderboard.leaderboard.dto.response.MessageResponse;
+import com.realtimeleaderboard.leaderboard.dto.response.ScoreUpdateResult;
 import com.realtimeleaderboard.leaderboard.exception.ForbiddenException;
 import com.realtimeleaderboard.leaderboard.exception.InvalidSportException;
 import com.realtimeleaderboard.leaderboard.exception.ServiceUnavailableException;
@@ -63,9 +63,11 @@ class LeaderboardUpdateServiceTest {
 
         LeaderboardScoreUpdateRequest request =
                 new LeaderboardScoreUpdateRequest(101L, 1L, 100.0, "score-1");
-        MessageResponse response = updateService.processScoreUpdate(request);
+        ScoreUpdateResult response = updateService.processScoreUpdate(request);
 
         assertEquals("Leaderboard updated", response.message());
+        assertTrue(response.updated());
+        assertEquals("FOOTBALL", response.sport());
         verify(redisRepository).incrementScore("leaderboard:football", "101", 100.0);
         verify(redisRepository).setProcessedScore("leaderboard:processed:score-1", 72);
     }
@@ -78,9 +80,10 @@ class LeaderboardUpdateServiceTest {
 
         LeaderboardScoreUpdateRequest request =
                 new LeaderboardScoreUpdateRequest(101L, 1L, 100.0, "score-1");
-        MessageResponse response = updateService.processScoreUpdate(request);
+        ScoreUpdateResult response = updateService.processScoreUpdate(request);
 
         assertEquals("Score already processed", response.message());
+        assertFalse(response.updated());
         verify(redisRepository, never()).incrementScore(anyString(), anyString(), anyDouble());
     }
 
@@ -116,8 +119,9 @@ class LeaderboardUpdateServiceTest {
 
         LeaderboardScoreUpdateRequest request =
                 new LeaderboardScoreUpdateRequest(202L, 2L, 50.0, "score-2");
-        MessageResponse response = updateService.processScoreUpdate(request);
+        ScoreUpdateResult response = updateService.processScoreUpdate(request);
         assertEquals("Leaderboard updated", response.message());
+        assertEquals("CRICKET", response.sport());
         verify(redisRepository).incrementScore("leaderboard:cricket", "202", 50.0);
     }
 
@@ -130,8 +134,9 @@ class LeaderboardUpdateServiceTest {
 
         LeaderboardScoreUpdateRequest request =
                 new LeaderboardScoreUpdateRequest(303L, 3L, 200.0, "score-3");
-        MessageResponse response = updateService.processScoreUpdate(request);
+        ScoreUpdateResult response = updateService.processScoreUpdate(request);
         assertEquals("Leaderboard updated", response.message());
+        assertEquals("F1", response.sport());
         verify(redisRepository).incrementScore("leaderboard:f1", "303", 200.0);
     }
 }

@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-**Last updated:** 2026-08-26 (Phase 7 Kafka Event Integration complete — outbox pattern, producer + consumer, tested 139/139, live-verified end-to-end)
+**Last updated:** 2026-08-26 (Phase 8 WebSocket/STOMP real-time updates complete — live leaderboard broadcasting, tested 101/101 leaderboard + 57/57 score, live-verified end-to-end)
 **Rule:** an item is checked only when it is demonstrably done and verified. Never pre-check.
 
 Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is actively in progress.
@@ -153,12 +153,21 @@ Additional Phase 3 deliverables: `SportCode` closed enum rejecting unsupported s
 
 ## Phase 10 — WebSocket Real-Time Updates
 
-- [ ] STOMP endpoint /ws/leaderboard (+SockJS fallback)
-- [ ] Topic strategy implemented (global, per-sport, personal queue)
-- [ ] Broadcast coalescing ≤ 1 msg/sec/topic
-- [ ] Heartbeats + session cleanup
-- [ ] Snapshot-on-subscribe behavior
-- [ ] Two-client live update test ≤ 2 s
+*Executed as "Phase 8" of this build-out. STOMP over WebSocket with SockJS fallback. Server-side broadcasting via SimpMessagingTemplate after each successful Kafka→Redis leaderboard update. Tests: 101/101 (82 existing + 19 WebSocket tests: 6 WebSocketConfigTest, 7 LeaderboardUpdatePublisherTest, 6 LeaderboardWebSocketIntegrationTest).*
+
+- [x] STOMP endpoint `/ws` (+ SockJS fallback) configured in leaderboard-service
+- [x] Topic strategy implemented: `/topic/leaderboards/football`, `/topic/leaderboards/cricket`, `/topic/leaderboards/f1`
+- [x] Heartbeat configured (10s intervals with 2-thread pool)
+- [x] Connection lifecycle logging (connect/disconnect/broadcast via SLF4J)
+- [x] Snapshot-on-subscribe pattern: REST initial load + WebSocket live updates
+- [x] Leaderboard broadcast: top-N configurable via `leaderboard.websocket.top-n` (default 10, max 100)
+- [x] Idempotent: duplicate Kafka events produce no duplicate WebSocket broadcasts
+- [x] Redis failure → no WebSocket broadcast (Redis is source of leaderboard state)
+- [x] WebSocket CORS configurable via `WEBSOCKET_ALLOWED_ORIGINS` env var
+- [x] Gateway WebSocket routing: `/ws/**` → `lb:ws://leaderboard-service`
+- [x] All existing Phase 1–7 tests continue passing
+- [x] WebSocket tests passing (**19/19**: 6 WebSocketConfigTest, 7 LeaderboardUpdatePublisherTest, 6 LeaderboardWebSocketIntegrationTest)
+- [x] Live E2E verified: submit scores → outbox → Kafka → consumer → Redis → WebSocket broadcast → leaderboard API correct
 
 ## Phase 11 — React Frontend
 

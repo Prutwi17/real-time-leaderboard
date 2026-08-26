@@ -44,6 +44,14 @@ Non-negotiable development rules for this repository. PRs violating these are re
 - Publish only after the corresponding DB commit succeeds.
 - No sensitive data in events: ids and scores, not credentials or PII beyond usernames-adjacent display data.
 
+## WebSocket Rules
+- Server is the sole publisher to `/topic/**`; clients may only subscribe.
+- Clients must not be allowed to publish to `/topic/**` or send arbitrary leaderboard data.
+- Broadcast only occurs after successful Redis update; Redis failure → no broadcast.
+- WebSocket message schema is server-controlled; `eventType` is `LEADERBOARD_UPDATED` (future types may be added).
+- CORS origins are configured via `WEBSOCKET_ALLOWED_ORIGINS`; no wildcard in production.
+- No JWT or secrets in WebSocket messages; leaderboard topics are public (read-only).
+
 ## Git Rules
 - No direct commits to `main` or `develop` — everything through feature branches + PRs.
 - Branch names: `feature/*`, `release/*`, `hotfix/*`. Never create long-lived per-service branches.

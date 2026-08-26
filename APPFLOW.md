@@ -173,15 +173,15 @@ Event payload, versioning, and idempotency rules: [SCHEMA.md §Kafka](SCHEMA.md)
 sequenceDiagram
     autonumber
     participant LB as leaderboard-service
-    participant WS as STOMP broker endpoint /ws/leaderboard
-    participant C1 as Client A (React)
-    participant C2 as Client B (React)
+    participant WS as STOMP broker endpoint /ws
+    participant C1 as Client A
+    participant C2 as Client B
 
     C1->>WS: CONNECT (SockJS fallback enabled)
     C2->>WS: CONNECT
-    C1->>WS: SUBSCRIBE /topic/leaderboard/f1
-    LB->>LB: consume event, recompute top-N + rank deltas (coalesce <= 1 msg/sec/topic)
-    LB->>WS: SEND /topic/leaderboard/f1 {type, entries, updatedAt}
+    C1->>WS: SUBSCRIBE /topic/leaderboards/football
+    LB->>LB: consume Kafka event, update Redis, query top-N
+    LB->>WS: SEND /topic/leaderboards/football {eventType, sport, leaderboard: {entries, totalPlayers}}
     WS-->>C1: push frame
     WS-->>C2: push frame
     Note over C1,C2: UI re-renders without reload

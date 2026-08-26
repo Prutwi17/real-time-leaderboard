@@ -12,6 +12,7 @@ import com.realtimeleaderboard.leaderboard.dto.response.LeaderboardEntryResponse
 import com.realtimeleaderboard.leaderboard.dto.response.LeaderboardResponse;
 import com.realtimeleaderboard.leaderboard.dto.response.MessageResponse;
 import com.realtimeleaderboard.leaderboard.dto.response.PlayerRankResponse;
+import com.realtimeleaderboard.leaderboard.dto.response.ScoreUpdateResult;
 import com.realtimeleaderboard.leaderboard.dto.response.SizeResponse;
 import com.realtimeleaderboard.leaderboard.exception.ForbiddenException;
 import com.realtimeleaderboard.leaderboard.exception.GlobalExceptionHandler;
@@ -170,7 +171,7 @@ class LeaderboardControllerTest {
     void updateScoreSuccess() throws Exception {
         LeaderboardScoreUpdateRequest request = new LeaderboardScoreUpdateRequest(101L, 1L, 100.0, "score-1");
         doNothing().when(updateService).validateInternalSecret("valid-secret");
-        when(updateService.processScoreUpdate(request)).thenReturn(new MessageResponse("Leaderboard updated"));
+        when(updateService.processScoreUpdate(request)).thenReturn(new ScoreUpdateResult("Leaderboard updated", true, "FOOTBALL"));
 
         mockMvc.perform(post("/internal/leaderboards/scores")
                         .header("X-Internal-Service-Secret", "valid-secret")

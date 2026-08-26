@@ -12,6 +12,9 @@ spring:
   main:
     allow-bean-definition-overriding: true
 
+  websocket:
+    allowed-origins: http://localhost:8080
+
 eureka:
   client:
     enabled: false
@@ -31,6 +34,11 @@ leaderboard:
   default-nearby-range: 2
   max-nearby-range: 10
   processed-score-ttl-hours: 72
+  websocket:
+    top-n: 10
+
+websocket:
+  allowed-origins: http://localhost:8080
 
 logging:
   level:

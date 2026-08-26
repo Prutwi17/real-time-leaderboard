@@ -48,6 +48,11 @@ leaderboard:
   default-nearby-range: 2
   max-nearby-range: 10
   processed-score-ttl-hours: 72
+  websocket:
+    top-n: 10
+
+websocket:
+  allowed-origins: ${WEBSOCKET_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}
 
 logging:
   level:

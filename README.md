@@ -4,7 +4,7 @@ A production-style, multi-sport, real-time leaderboard platform. Authenticated u
 
 > Reference project: **https://roadmap.sh/projects/realtime-leaderboard**
 >
-> Status: Phase 0 docs ✅ · Phase 1A microservice foundations ✅ · Phase 2 authentication ✅ · Phase 3 sport service ✅ · Phase 4 score service ✅ · Phase 5 user/player service ✅ · **Phase 6 Redis leaderboard ✅ (82/82 tests)** · **Phase 7 Kafka event integration ✅ (139/139 tests, outbox pattern, live E2E verified)**. WebSocket and frontend are NOT implemented yet.
+> Status: Phase 0 docs ✅ · Phase 1A microservice foundations ✅ · Phase 2 authentication ✅ · Phase 3 sport service ✅ · Phase 4 score service ✅ · Phase 5 user/player service ✅ · **Phase 6 Redis leaderboard ✅ (82/82 tests)** · **Phase 7 Kafka event integration ✅ (139/139 tests, outbox pattern, live E2E verified)** · **Phase 8 WebSocket/STOMP real-time ✅ (101/101 tests, live broadcast verified)**. React frontend is NOT implemented yet.
 
 ---
 
