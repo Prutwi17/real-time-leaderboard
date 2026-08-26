@@ -148,17 +148,22 @@ Full keyspace, TTLs, and command rationale in [SCHEMA.md §Redis](SCHEMA.md). Es
 ```
 frontend/
  ├── src/
- │   ├── api/          # axios instance (baseURL = gateway), interceptors for refresh flow
- │   ├── auth/         # token storage, guards, role helpers
- │   ├── components/   # LeaderboardTable, RankBadge, ScoreForm, SportTabs...
- │   ├── pages/        # Login Register Dashboard Leaderboard Profile ScoreHistory Reports Admin
- │   ├── hooks/        # useLeaderboardSocket(topic) -> live entries
- │   ├── types/        # DTO mirrors of backend contracts
- │   └── App.tsx       # router
- └── vite.config.ts    # dev proxy -> http://localhost:8080 (gateway), never direct services
+ │   ├── api/              # axios instance (baseURL = gateway), interceptors for refresh flow
+ │   ├── components/       # 16+ reusable components (LeaderboardTable, RankBadge, ScoreForm, SportTabs...)
+ │   ├── hooks/            # useWebSocket, useLeaderboard, usePlayer, useScores, useScoreSubmit
+ │   ├── pages/            # Login, Register, Dashboard, Leaderboard, Players, PlayerDetail, Scores, Admin
+ │   ├── types/            # TypeScript DTO mirrors of backend contracts
+ │   ├── utils/            # Auth helpers, formatting, constants
+ │   ├── App.tsx           # React Router root
+ │   └── main.tsx          # Entry point
+ ├── vite.config.ts        # dev proxy -> /api/** and /ws/** → http://localhost:8080
+ ├── tailwind.config.js
+ └── package.json
 ```
 
-State: server state via small query layer + WebSocket patches; no global store required in V1. TypeScript `strict: true`.
+**Implemented (Phase 11):** React 18 + TypeScript strict + Vite 5 + Tailwind CSS. All communication flows through the API Gateway — no direct microservice URLs. Centralized Axios instance with JWT Bearer token interceptor and silent refresh-on-401. STOMP over SockJS for live leaderboard subscriptions (`/topic/leaderboards/{sport}`). Route guards enforce authentication (JWT presence) and role checks (ADMIN). Tests: 26/26 passing (Vitest + React Testing Library).
+
+State: server state via Axios queries + WebSocket patches; no global store required in V1. TypeScript `strict: true`. Vite dev server proxies `/api` and `/ws` to gateway at `:8080`.
 
 ## 11. Security Architecture
 
