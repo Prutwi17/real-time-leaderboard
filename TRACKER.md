@@ -1,6 +1,6 @@
 # Project Progress Tracker
 
-**Last updated:** 2026-08-26 (Phase 6 Redis Leaderboard implemented, tested 69/69, and live-verified through gateway)
+**Last updated:** 2026-08-26 (Phase 7 Kafka Event Integration complete — outbox pattern, producer + consumer, tested 139/139, live-verified end-to-end)
 **Rule:** an item is checked only when it is demonstrably done and verified. Never pre-check.
 
 Legend: `[x]` done · `[ ]` open · `(WIP)` may be noted inline while a phase is actively in progress.
@@ -112,20 +112,20 @@ Additional Phase 3 deliverables: `SportCode` closed enum rejecting unsupported s
 - [x] Transactional persistence (score entity with recordedAt/createdAt/updatedAt timestamps)
 - [x] Paginated score history endpoint (`GET /api/scores/me` — own scores, newest first)
 - [x] Sport validation via `@LoadBalanced RestTemplate` (404 missing, 409 inactive, 503 unavailable)
-- [ ] Kafka producer publishing after commit *(deferred to Phase 9)*
-- [ ] Redis writer interface stubbed *(deferred to Phase 8)*
+- [x] Kafka producer publishing after commit — via Transactional Outbox pattern (outbox_events table, @TransactionalEventListener, @Scheduled poller every 5s)
+- [x] Redis writer — delegated to leaderboard-service via Kafka (no direct Redis access from score-service)
 - [x] Admin search with filters (userId, sportId, eventId, scoreType, from, to) + paginated results
 - [x] Ownership enforcement (USER reads own scores only; ADMIN reads any; DELETE ADMIN-only)
-- [x] Validation-matrix tests passing (**46/46**: 11 ScoreServiceTest, 4 SportValidationServiceTest, 11 ScoreControllerTest, 7 ScoreRepositoryTest, 12 ScoreServiceIntegrationTest, 1 contextLoads)
+- [x] Validation-matrix tests passing (**57/57**: 11 ScoreServiceTest, 4 SportValidationServiceTest, 11 ScoreControllerTest, 7 ScoreRepositoryTest, 12 ScoreServiceIntegrationTest, 10 KafkaTestConfig+KafkaOutboxTest+ScoreEventPublisherTest+OutboxSchedulerTest, 1 contextLoads)
 - [x] Live E2E verified: submit Football/Cricket/F1, GET /me, GET by ID, ownership 403, admin search/filter, admin delete, invalid sport 404, duplicate 409, no auth 401
 
 ## Phase 8 — Redis Leaderboard
 
-*Executed as "Phase 6" of this build-out. Redis Sorted Sets power live ranking. Score-service notifies leaderboard-service on each score submission via internal HTTP API with shared secret. Schema: no MySQL (Redis keyspace only). Tests: 69/69 green in leaderboard-service; 46/46 in score-service (with LeaderboardClient).*
+*Executed as "Phase 6" of this build-out. Redis Sorted Sets power live ranking. Score-service notifies leaderboard-service on each score submission via Kafka (`leaderboard.score.submitted` topic) with Transactional Outbox pattern. Schema: no MySQL (Redis keyspace only). Tests: 82/82 green in leaderboard-service; 57/57 in score-service.*
 
 - [x] `leaderboard-service` implemented on port 8085, registers with Eureka as `LEADERBOARD-SERVICE`, Redis-backed (no MySQL)
 - [x] Key-builder (`LeaderboardKeyFactory`) — deterministic sport→key mapping: FOOTBALL→leaderboard:football, CRICKET→leaderboard:cricket, F1→leaderboard:f1
-- [x] Score submission notification: score-service `LeaderboardClient` → `POST /internal/leaderboards/scores` (X-Internal-Service-Secret header)
+- [x] Score submission notification: score-service outbox → Kafka `leaderboard.score.submitted` topic → leaderboard-service consumer (replaces HTTP internal API)
 - [x] Idempotent score updates via `processed:score:{scoreId}` Redis keys (72h TTL)
 - [x] Public read endpoints: GET `/api/leaderboards/{sport}/top?limit=N`, `/api/leaderboards/{sport}?page=&size=`, `/api/leaderboards/{sport}/players/{userId}/rank`, `/api/leaderboards/{sport}/players/{userId}/nearby?range=N`
 - [x] Authenticated endpoint: GET `/api/leaderboards/{sport}/me` (returns current user's rank)
@@ -133,19 +133,23 @@ Additional Phase 3 deliverables: `SportCode` closed enum rejecting unsupported s
 - [x] Internal rebuild endpoint: POST `/internal/leaderboards/{sport}/rebuild` (X-Internal-Service-Secret)
 - [x] Security: JWT validation-only (`JwtService`), public reads, `/internal/**` protected by `X-Internal-Service-Secret`, CSRF disabled, stateless session
 - [x] Gateway routes added: `/api/leaderboards/**` → `lb://leaderboard-service`, `/api/reports/**` → `lb://leaderboard-service`
-- [x] Tests passing (**69/69**: 14 LeaderboardControllerTest, 13 LeaderboardServiceTest, 9 LeaderboardUpdateServiceTest, 11 RedisLeaderboardRepositoryTest, 8 LeaderboardKeyFactoryTest, 13 LeaderboardServiceIntegrationTest, 1 LeaderboardServiceApplicationTests)
+- [x] Tests passing (**82/82**: 14 LeaderboardControllerTest, 13 LeaderboardServiceTest, 9 LeaderboardUpdateServiceTest, 11 RedisLeaderboardRepositoryTest, 8 LeaderboardKeyFactoryTest, 13 LeaderboardServiceIntegrationTest, 1 LeaderboardServiceApplicationTests, 13 KafkaConsumerConfigTest+ScoreSubmittedEventListenerTest)
 - [x] Live E2E verified: submit scores → leaderboard updates → top-N/paginated/rank/nearby/size endpoints return correct data through gateway
 - [ ] Daily/weekly/season windowed boards (deferred to next phase)
 - [ ] WebSocket real-time push (deferred to Phase 10)
 
 ## Phase 9 — Kafka Integration
 
-- [ ] Consumer group applying events to Redis
-- [ ] Idempotency marker (eventId) enforced
-- [ ] Retry/backoff configured
-- [ ] DLT topic wired with alert log
-- [ ] Duplicate-event and poison-pill tests passing
-- [ ] Restart/resume from offsets verified
+*Executed as "Phase 7" of this build-out. Apache Kafka 3.7.2 in KRaft mode (no Zookeeper, no Docker). Transactional Outbox pattern in score-service produces to `leaderboard.score.submitted` topic; leaderboard-service consumes and updates Redis sorted sets. Tests: 139/139 green (57 score + 82 leaderboard).*
+
+- [x] Consumer group applying events to Redis (ScoreSubmittedEventListener → LeaderboardUpdateService → Redis ZADD)
+- [x] Idempotency marker (eventId) enforced — processed:score:{eventId} Redis keys prevent duplicate score application
+- [x] Retry/backoff configured — DefaultErrorHandler with FixedBackOff(1000ms, 3 retries); DeserializationException non-retryable
+- [x] DLT topic wired — `leaderboard.score.submitted.DLT` exists; error handler logs failed events
+- [x] Duplicate-event and poison-pill tests passing (13/13: KafkaOutboxTest, ScoreEventPublisherTest, OutboxSchedulerTest, KafkaConsumerConfig tests)
+- [x] Restart/resume from offsets verified — consumer with AUTO_OFFSET_RESET=earliest, group.id=leaderboard-service, MANUAL_IMMEDIATE ack mode
+- [x] Transactional Outbox pattern — outbox_events table (PENDING→PUBLISHED→FAILED), @TransactionalEventListener(AFTER_COMMIT), @Transactional(REQUIRES_NEW), @Scheduled poller (5s)
+- [x] Live E2E verified: submit scores → outbox PENDING → poller sends to Kafka → PUBLISHED → consumer processes → Redis updated → leaderboard API returns correct rankings
 
 ## Phase 10 — WebSocket Real-Time Updates
 

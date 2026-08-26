@@ -7,7 +7,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.realtimeleaderboard.score.client.LeaderboardClient;
 import com.realtimeleaderboard.score.client.SportSnapshot;
 import com.realtimeleaderboard.score.dto.request.CreateScoreRequest;
 import com.realtimeleaderboard.score.dto.response.ScoreResponse;
@@ -25,16 +24,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class ScoreServiceTest {
 
     @Mock private ScoreRepository scoreRepository;
     @Mock private SportValidationService sportValidationService;
-    @Mock private LeaderboardClient leaderboardClient;
+    @Mock private ApplicationEventPublisher eventPublisher;
     private ScoreService scoreService;
 
-    @BeforeEach void setUp() { scoreService = new ScoreService(scoreRepository, sportValidationService, leaderboardClient); }
+    @BeforeEach void setUp() { scoreService = new ScoreService(scoreRepository, sportValidationService, eventPublisher); }
 
     @Test
     void submitSavesScoreAfterSportValidation() {
@@ -53,6 +53,21 @@ class ScoreServiceTest {
         ArgumentCaptor<Score> cap = ArgumentCaptor.forClass(Score.class);
         verify(scoreRepository).save(cap.capture());
         assertThat(cap.getValue().getSubmissionId()).isEqualTo("sub-1");
+        verify(eventPublisher).publishEvent(any(Score.class));
+    }
+
+    @Test
+    void submitPublishesEventAfterDbSave() {
+        when(sportValidationService.validateSportForSubmission(1L))
+                .thenReturn(new SportSnapshot(1L, "FOOTBALL", "Football", true));
+        when(scoreRepository.save(any(Score.class))).thenAnswer(inv -> inv.getArgument(0, Score.class));
+
+        CreateScoreRequest req = new CreateScoreRequest(1L, BigDecimal.valueOf(50), null, null, ScoreType.GOALS, null);
+        scoreService.submit(10L, req);
+
+        ArgumentCaptor<Score> cap = ArgumentCaptor.forClass(Score.class);
+        verify(eventPublisher).publishEvent(cap.capture());
+        assertThat(cap.getValue().getUserId()).isEqualTo(10L);
     }
 
     @Test
@@ -64,6 +79,7 @@ class ScoreServiceTest {
         assertThatThrownBy(() -> scoreService.submit(10L, req))
                 .isInstanceOf(ConflictException.class).hasMessageContaining("Duplicate");
         verify(scoreRepository, never()).save(any());
+        verify(eventPublisher, never()).publishEvent(any());
     }
 
     @Test
@@ -100,7 +116,7 @@ class ScoreServiceTest {
         score.setValue(BigDecimal.TEN); score.setScoreType(ScoreType.RUNS);
         when(scoreRepository.findById(5L)).thenReturn(Optional.of(score));
         ScoreResponse resp = scoreService.getById(5L, 10L, "USER");
-        assertThat(resp.id()).isNull(); // not set by save
+        assertThat(resp.id()).isNull();
         assertThat(resp.userId()).isEqualTo(10L);
     }
 

@@ -1,6 +1,5 @@
 package com.realtimeleaderboard.score.service;
 
-import com.realtimeleaderboard.score.client.LeaderboardClient;
 import com.realtimeleaderboard.score.client.SportSnapshot;
 import com.realtimeleaderboard.score.dto.request.CreateScoreRequest;
 import com.realtimeleaderboard.score.dto.response.PageResponse;
@@ -15,6 +14,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -27,13 +27,13 @@ public class ScoreService {
 
     private final ScoreRepository scoreRepository;
     private final SportValidationService sportValidationService;
-    private final LeaderboardClient leaderboardClient;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ScoreService(ScoreRepository scoreRepository, SportValidationService sportValidationService,
-                        LeaderboardClient leaderboardClient) {
+                        ApplicationEventPublisher eventPublisher) {
         this.scoreRepository = scoreRepository;
         this.sportValidationService = sportValidationService;
-        this.leaderboardClient = leaderboardClient;
+        this.eventPublisher = eventPublisher;
     }
 
     @Transactional
@@ -52,17 +52,14 @@ public class ScoreService {
         score.setEventId(request.eventId());
         score.setScoreType(request.scoreType());
         score.setSubmissionId(request.submissionId());
-        // recordedAt defaults to Instant.now() via @PrePersist if null.
         Score saved = scoreRepository.save(score);
 
-        // Notify leaderboard-service (best-effort; failure does not rollback score)
-        try {
-            leaderboardClient.notifyScoreUpdate(
-                    userId, request.sportId(), request.value().doubleValue(),
-                    request.submissionId() != null ? request.submissionId() : String.valueOf(saved.getId()));
-        } catch (Exception e) {
-            log.warn("Leaderboard notification failed for score {}: {}", saved.getId(), e.getMessage());
-        }
+        // Publish application event AFTER MySQL commit.
+        // ScoreEventPublisher listens via @TransactionalEventListener(AFTER_COMMIT)
+        // and creates an outbox record. A scheduled publisher then sends to Kafka.
+        // This ensures: MySQL committed -> outbox persisted -> Kafka publish attempt.
+        // If Kafka is unavailable, the outbox retains the event for retry.
+        eventPublisher.publishEvent(saved);
 
         return ScoreResponse.from(saved);
     }

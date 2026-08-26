@@ -122,7 +122,7 @@ sequenceDiagram
 
 Design decisions:
 - User validity comes from gateway-verified JWT claims (`X-User-Id`), so no user-service call is needed on this hot path.
-- Score-service calls leaderboard-service via HTTP after MySQL commit (best-effort); Kafka is not yet in the pipeline.
+- Score-service persists a row in `outbox_events` after MySQL commit (Transactional Outbox pattern); a scheduled poller (5s interval) publishes to Kafka `leaderboard.score.submitted` topic.
 - Leaderboard-service performs idempotent Redis writes keyed by `scoreId` with a 72h TTL to prevent duplicate processing.
 - If the internal call to leaderboard-service fails, MySQL commit still succeeds and a reconciliation job replays history ([DESIGN.md §Failure scenarios](DESIGN.md)).
 
