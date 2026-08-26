@@ -67,7 +67,7 @@ Every backend service shares the same internal skeleton (package-per-feature, co
 | user-service | `user_profiles` (keyed by userId from token) | credentials (lives in auth_db) |
 | sport-service | `sports` catalog | scores/users |
 | score-service | `scores`, `score_history` | users/sports tables (uses Feign or JWT claims) |
-| leaderboard-service | **Implemented:** Redis Sorted Sets for live ranking (all-time per sport); internal HTTP score update endpoint (X-Internal-Service-Secret); rebuild-from-history; paginated/top-N/rank/nearby read endpoints. | Daily/weekly/season windows (planned); Kafka consumer (planned); WebSocket push (planned) |
+| leaderboard-service | **Implemented:** Redis Sorted Sets for live ranking (all-time per sport); Kafka consumer for `leaderboard.score.submitted` topic (idempotent on eventId); rebuild-from-history; paginated/top-N/rank/nearby read endpoints. | Daily/weekly/season windows (planned); WebSocket push (planned) |
 
 Boundary rule ([RULES.md](RULES.md)): cross-service data access is **API or event only**. This is what makes "add a sport" a data change rather than a migration.
 

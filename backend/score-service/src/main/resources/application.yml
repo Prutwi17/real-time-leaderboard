@@ -23,6 +23,22 @@ spring:
       hibernate:
         format_sql: false
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      properties:
+        max.block.ms: 5000
+        delivery.timeout.ms: 10000
+        request.timeout.ms: 5000
+        spring.json.use.type.headers: false
+        spring.json.use.type.id: false
+    topic:
+      score-submitted: ${KAFKA_TOPIC_SCORE_SUBMITTED:leaderboard.score.submitted}
+
 eureka:
   client:
     service-url:

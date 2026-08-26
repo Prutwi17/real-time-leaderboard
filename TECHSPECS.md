@@ -92,7 +92,7 @@ All external traffic: `React → API Gateway → {service}`. The gateway is the 
 
 ### 3.3 Asynchronous events
 - Transport: **Kafka**, topic `score-submitted`.
-- Producer: score-service, after MySQL commit (transactional outbox is a documented upgrade path if publish-after-commit loss becomes a concern).
+- Producer: score-service, via Transactional Outbox pattern (`outbox_events` table, `@TransactionalEventListener(AFTER_COMMIT)`, `@Transactional(REQUIRES_NEW)`, `@Scheduled` poller 5s interval).
 - Consumer group: `leaderboard-service`; key = `userId` (per-user ordering); idempotent on `eventId`.
 - Why async: the write path must not block on fan-out work (Redis updates, WS broadcasts), and future consumers (analytics, fraud) plug in without touching score-service.
 

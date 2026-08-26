@@ -10,11 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.realtimeleaderboard.score.KafkaTestConfig;
 import com.realtimeleaderboard.score.client.SportServiceClient;
 import com.realtimeleaderboard.score.client.SportSnapshot;
 import com.realtimeleaderboard.score.exception.ConflictException;
 import com.realtimeleaderboard.score.exception.ResourceNotFoundException;
 import com.realtimeleaderboard.score.exception.ServiceUnavailableException;
+import com.realtimeleaderboard.score.kafka.ScoreEventPublisher;
 import com.realtimeleaderboard.score.support.TestJwtFactory;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +27,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,21 +35,24 @@ import org.springframework.test.web.servlet.MvcResult;
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Import(KafkaTestConfig.class)
 class ScoreServiceIntegrationTest {
 
     private static final String BEARER = "Bearer ";
     @Autowired private MockMvc mockMvc;
+    @Autowired private ScoreEventPublisher scoreEventPublisher;
 
     private static final SportServiceClient sportClient = Mockito.mock(SportServiceClient.class);
 
     @TestConfiguration
-    static class MockSportClient {
+    static class MockClients {
         @Bean @Primary SportServiceClient sportServiceClient() { return sportClient; }
     }
 
     @BeforeEach
-    void stubSportClient() {
+    void stubClients() {
         Mockito.reset(sportClient);
+        Mockito.reset(scoreEventPublisher);
         when(sportClient.fetchSport(1L)).thenReturn(new SportSnapshot(1L, "FOOTBALL", "Football", true));
         when(sportClient.fetchSport(2L)).thenReturn(new SportSnapshot(2L, "CRICKET", "Cricket", true));
         when(sportClient.fetchSport(3L)).thenReturn(new SportSnapshot(3L, "F1", "Formula 1", true));
